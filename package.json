@@ -1,0 +1,70 @@
+{
+  "name": "rental-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Rental Platform V1.0 — Sprint 0 foundation",
+  "workspaces": [
+    "packages/shared",
+    "apps/api",
+    "apps/web"
+  ],
+  "packageManager": "npm@11.17.0",
+  "engines": {
+    "node": ">=24.0.0 <25",
+    "npm": ">=11 <12"
+  },
+  "scripts": {
+    "postinstall": "npm run prisma:generate -w @rental/api",
+    "prepare": "husky",
+    "dev": "npm run build -w @rental/shared && concurrently -k -n shared,api,web \"npm run dev -w @rental/shared\" \"npm run dev -w @rental/api\" \"npm run dev -w @rental/web\"",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "npm run build -w @rental/shared && npm run typecheck --workspaces",
+    "test": "npm run build -w @rental/shared && npm run test --workspaces",
+    "test:api": "npm run build -w @rental/shared && npm run test:api -w @rental/api",
+    "test:e2e": "npm run build -w @rental/shared && npm run test:e2e -w @rental/web",
+    "build": "npm run build --workspaces",
+    "start:api": "npm run start -w @rental/api",
+    "preview:web": "npm run preview -w @rental/web",
+    "prisma:generate": "npm run prisma:generate -w @rental/api",
+    "prisma:validate": "npm run prisma:validate -w @rental/api",
+    "prisma:format": "npm run prisma:format -w @rental/api",
+    "prisma:migrate:dev": "npm run prisma:migrate:dev -w @rental/api",
+    "prisma:migrate:deploy": "npm run prisma:migrate:deploy -w @rental/api",
+    "prisma:migrate:status": "npm run prisma:migrate:status -w @rental/api",
+    "prisma:inspect": "npm run prisma:inspect -w @rental/api",
+    "prisma:studio": "npm run prisma:studio -w @rental/api",
+    "prisma:check-neon": "npm run prisma:check-neon -w @rental/api"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,cjs,mjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml,css,html}": "prettier --write"
+  },
+  "overrides": {
+    "deepmerge-ts": "8.0.2",
+    "mysql2": "3.24.6",
+    "@nestjs/swagger": {
+      "js-yaml": "5.4.3"
+    },
+    "@istanbuljs/load-nyc-config": {
+      "js-yaml": "4.3.2"
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.19.2",
+    "concurrently": "9.2.5",
+    "eslint": "10.12.0",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "16.5.0",
+    "husky": "9.1.7",
+    "lint-staged": "16.4.0",
+    "prettier": "3.9.10",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.71.2"
+  }
+}
