@@ -1,45 +1,25 @@
-import { fileURLToPath } from 'node:url';
 import { defineConfig, devices } from '@playwright/test';
 
-const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
+// Cổng riêng cho e2e để không đụng dev server khác đang chạy ở 5173.
+const PORT = Number(process.env.E2E_PORT ?? 5199);
+const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: true,
-  forbidOnly: Boolean(process.env.CI),
-  retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 2 : undefined,
-  reporter: [['list'], ['html', { open: 'never' }]],
-  use: { baseURL: 'http://127.0.0.1:5174', trace: 'retain-on-failure' },
+  timeout: 30_000,
+  // Dev server biên dịch theo yêu cầu nên lần đầu mở trang có thể chậm.
+  expect: { timeout: 10_000 },
+  // PW_CHANNEL=msedge|chrome để dùng trình duyệt có sẵn trên máy thay vì tải Chromium.
+  use: { baseURL: BASE_URL, trace: 'on-first-retry', channel: process.env.PW_CHANNEL || undefined },
+  webServer: {
+    command: `npm run dev -- --port ${PORT} --strictPort`,
+    url: BASE_URL,
+    reuseExistingServer: false,
+    timeout: 120_000,
+    env: { VITE_USE_MOCK_API: 'true' },
+  },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'mobile-chromium', use: { ...devices['Pixel 7'] } },
-  ],
-  webServer: [
-    {
-      command: 'npm run dev -w @rental/api',
-      cwd: repositoryRoot,
-      url: 'http://127.0.0.1:3100/api/v1/health',
-      reuseExistingServer: false,
-      timeout: 60_000,
-      env: {
-        NODE_ENV: 'test',
-        PORT: '3100',
-        HOST: '127.0.0.1',
-        DATABASE_ENABLED: 'false',
-        DATABASE_ENVIRONMENT: 'development',
-        DATABASE_URL: '',
-        DIRECT_URL: '',
-        SWAGGER_ENABLED: 'false',
-      },
-    },
-    {
-      command: 'npm run dev -w @rental/web -- --port 5174 --strictPort',
-      cwd: repositoryRoot,
-      url: 'http://127.0.0.1:5174',
-      reuseExistingServer: false,
-      timeout: 60_000,
-      env: { VITE_API_BASE_URL: '/api/v1', VITE_API_PROXY_TARGET: 'http://127.0.0.1:3100' },
-    },
+    { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
+    { name: 'mobile', use: { ...devices['Pixel 7'] } },
   ],
 });
