@@ -1,33 +1,219 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
-test('loads the home page and connects to the real local API', async ({ page }, testInfo) => {
-  const pageErrors: string[] = [];
-  page.on('pageerror', (error) => pageErrors.push(error.message));
+/** Smoke test các luồng demo chính (chạy với VITE_USE_MOCK_API=true). */
+
+async function login(page: Page, email: string) {
+  await page.goto('/login');
+  await page.getByLabel(/Email hoặc số điện thoại/).fill(email);
+  await page.getByLabel(/^Mật khẩu/).fill('demo1234');
+  await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
+  await page.waitForURL((url) => !url.pathname.startsWith('/login'));
+}
+
+function trackErrors(page: Page) {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  return errors;
+}
+
+async function expectNoCrash(page: Page) {
+  await expect(page.getByText('Hệ thống gặp sự cố ngoài ý muốn')).toHaveCount(0);
+}
+
+test('F1 — Khách: trang chủ → lọc → chi tiết → đặt lịch → chờ xác nhận', async ({ page }) => {
+  const errors = trackErrors(page);
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-    'Không gian cho một khởi đầu mới.',
-  );
-  await expect(page.getByText('API đang hoạt động')).toBeVisible();
-  await expect(page.getByRole('link', { name: /Xem trạng thái hệ thống/ })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
-    true,
-  );
-  expect(pageErrors).toEqual([]);
-  await page.screenshot({ path: testInfo.outputPath('home.png'), fullPage: true });
+  await expect(page.getByRole('heading', { name: /Tìm phòng trọ phù hợp/ })).toBeVisible();
+  await page.getByRole('button', { name: /Tìm ngay/ }).click();
+  await expect(page).toHaveURL(/\/rooms\?/);
+  await expect(page.getByText(/Tìm thấy \d+ phòng/)).toBeVisible();
+  await page.getByRole('link', { name: 'Xem chi tiết' }).first().click();
+  await expect(page.getByRole('link', { name: /Đặt lịch xem phòng/ })).toBeVisible();
+  await page.getByRole('link', { name: /Đặt lịch xem phòng/ }).click();
+  await page.getByRole('button', { name: /14:00/ }).click();
+  await page.getByLabel(/Họ tên/).fill('Khách Demo');
+  await page.getByLabel(/Số điện thoại/).fill('0909123456');
+  await page.getByRole('button', { name: 'Gửi yêu cầu xem phòng' }).click();
+  await expect(page.getByText('Đã gửi yêu cầu xem phòng')).toBeVisible();
+  await expect(page.getByText('Chờ xác nhận')).toBeVisible();
+  expect(errors).toEqual([]);
 });
 
-test('supports a direct visit to an unknown route and recovery', async ({ page }) => {
-  await page.goto('/missing-page');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Trang này chưa có ở đây.');
-  await page.getByRole('link', { name: /Về trang chủ/ }).click();
-  await expect(page.getByText('API đang hoạt động')).toBeVisible();
+test('Route guard: chưa đăng nhập vào workspace bị chuyển tới login', async ({ page }) => {
+  await page.goto('/w/ws-an-nhien/dashboard');
+  await expect(page).toHaveURL(/\/login\?redirect=/);
 });
 
-test('renders the API failure and retry state', async ({ page }) => {
-  await page.route('**/api/v1/health', (route) => route.fulfill({ status: 503, body: '{}' }));
-  await page.goto('/');
-  await expect(page.getByRole('alert')).toContainText('Chưa kết nối được API');
-  await page.unroute('**/api/v1/health');
-  await page.getByRole('button', { name: 'Thử lại' }).click();
-  await expect(page.getByText('API đang hoạt động')).toBeVisible();
+test('F2/F4 — Chủ trọ: mọi màn hình workspace render không lỗi', async ({ page }) => {
+  test.setTimeout(180_000);
+  const errors = trackErrors(page);
+  await login(page, 'quan@demo.vn');
+  // Chủ trọ đăng nhập vào thẳng khu quản lý
+  await expect(page).toHaveURL('/w/ws-an-nhien/dashboard');
+  const ws = '/w/ws-an-nhien';
+  const routes = [
+    'dashboard', 'settings', 'members', 'buildings', 'buildings/new', 'buildings/bld-a', 'buildings/bld-a/edit',
+    'rooms', 'rooms/new', 'rooms/room-bld-a-P302', 'rooms/room-bld-a-P302/edit', 'viewings',
+    'tenants', 'tenants/new', 'tenants/ten-1', 'tenants/ten-1/edit', 'contracts', 'contracts/new', 'contracts/ctr-1', 'contracts/ctr-draft/edit',
+    'vehicles', 'rates', 'meters', 'invoices', 'billing/run', 'payments', 'deposits', 'maintenance', 'maintenance/mnt-1', 'reports',
+  ];
+  for (const r of routes) {
+    await page.goto(`${ws}/${r}`);
+    await expect(page.locator('h1').first()).toBeVisible();
+    await expectNoCrash(page);
+  }
+  // Mở chi tiết một hóa đơn từ danh sách
+  await page.goto(`${ws}/invoices`);
+  await page.locator('table a').first().click();
+  await expect(page.getByText('Chi tiết khoản phí')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('F4 — Chủ trọ: xem trước & lập hóa đơn, xác nhận thanh toán một phần', async ({ page }) => {
+  test.setTimeout(90_000);
+  await login(page, 'quan@demo.vn');
+  await page.goto('/w/ws-an-nhien/billing/run');
+  await page.getByRole('button', { name: 'Xem trước' }).click();
+  await expect(page.getByText('Thiếu chỉ số').first()).toBeVisible();
+  await page.getByRole('button', { name: /Bước 3 — Phát hành/ }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Phát hành' }).click();
+  await expect(page.getByText(/Đã tạo \d+ hóa đơn/).first()).toBeVisible();
+
+  await page.goto('/w/ws-an-nhien/payments');
+  await page.getByLabel(/Hóa đơn còn nợ/).selectOption({ index: 1 });
+  await page.getByLabel('Số tiền', { exact: false }).fill('100000');
+  await page.getByRole('button', { name: 'Ghi nhận & xác nhận' }).click();
+  await expect(page.getByText('Đã ghi nhận thanh toán một phần.')).toBeVisible();
+});
+
+test('F5 — Người thuê: xem hóa đơn và gửi minh chứng', async ({ page }) => {
+  test.setTimeout(90_000);
+  const errors = trackErrors(page);
+  await login(page, 'nam@demo.vn');
+  await expect(page).toHaveURL('/tenant');
+  for (const r of ['/tenant', '/tenant/contracts', '/tenant/invoices', '/tenant/maintenance', '/tenant/link-account', '/tenant/payments/new']) {
+    await page.goto(r);
+    await expect(page.locator('h1').first()).toBeVisible();
+    await expectNoCrash(page);
+  }
+  await page.goto('/tenant/invoices');
+  await page.locator('table a').first().click();
+  await expect(page.getByText('Các khoản phí')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('F6 — Admin: quản lý workspace / người dùng', async ({ page }) => {
+  test.setTimeout(90_000);
+  const errors = trackErrors(page);
+  await login(page, 'admin@demo.vn');
+  await expect(page).toHaveURL('/admin');
+  for (const r of ['/admin', '/admin/users', '/admin/workspaces', '/admin/listings', '/admin/audit-logs']) {
+    await page.goto(r);
+    await expect(page.locator('h1').first()).toBeVisible();
+    await expectNoCrash(page);
+  }
+  await page.goto('/admin/workspaces');
+  await page.getByRole('button', { name: 'Tạm khóa' }).first().click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Tạm khóa' }).click();
+  await expect(page.getByText('Đã cập nhật trạng thái workspace.')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('Người dùng & trạng thái lỗi mock', async ({ page }) => {
+  test.setTimeout(90_000);
+  const errors = trackErrors(page);
+  await login(page, 'minh@demo.vn');
+  for (const r of ['/account', '/my-viewings', '/notifications', '/link-tenant', '/rooms/map', '/about', '/help', '/khong-ton-tai']) {
+    await page.goto(r);
+    await expect(page.locator('h1').first()).toBeVisible();
+  }
+  await page.goto('/rooms?mock=500');
+  await expect(page.getByText('Lỗi máy chủ (mock 500).')).toBeVisible();
+  await page.goto('/rooms?mock=empty');
+  await expect(page.getByText('Không tìm thấy phòng phù hợp')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('Tách vai trò: mỗi vai trò chỉ thấy và vào được khu vực của mình', async ({ page }) => {
+  test.setTimeout(90_000);
+  const errors = trackErrors(page);
+  const areaTabs = page.locator('.area-switcher:visible').first().getByRole('link');
+  // Mobile: thanh khu vực nằm trong menu (header công khai) hoặc bị ẩn (khung quản lý)
+  const expectAreas = async (labels: string[]) => {
+    if (test.info().project.name !== 'desktop') return;
+    await expect(areaTabs).toHaveText(labels);
+  };
+
+  // Người tìm phòng: chỉ khu Tìm phòng; vào khu chủ trọ / người thuê bị đưa về trang chủ
+  await login(page, 'minh@demo.vn');
+  await expect(page).toHaveURL('/');
+  await expectAreas(['Tìm phòng trọ']);
+  for (const r of ['/w/ws-an-nhien/dashboard', '/workspaces/select', '/tenant', '/admin']) {
+    await page.goto(r);
+    await expect(page).toHaveURL('/');
+  }
+  await page.evaluate(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+
+  // Chủ trọ: chỉ khu Chủ trọ; trang tìm phòng & cổng người thuê đưa về dashboard
+  await login(page, 'quan@demo.vn');
+  await expectAreas(['Chủ trọ(Landlord)']);
+  for (const r of ['/', '/rooms', '/my-viewings', '/tenant']) {
+    await page.goto(r);
+    await expect(page).toHaveURL(/\/w\/ws-an-nhien\/dashboard/);
+  }
+  await page.evaluate(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+
+  // Người thuê: chỉ Cổng người thuê
+  await login(page, 'nam@demo.vn');
+  await expectAreas(['Cổng người thuê(Tenant)']);
+  for (const r of ['/', '/rooms', '/w/ws-an-nhien/dashboard', '/link-tenant']) {
+    await page.goto(r);
+    await expect(page).toHaveURL('/tenant');
+  }
+  expect(errors).toEqual([]);
+});
+
+test('Quên mật khẩu → đặt lại → đăng nhập bằng mật khẩu mới', async ({ page }) => {
+  const errors = trackErrors(page);
+  // Liên kết sai → báo không hợp lệ
+  await page.goto('/reset-password?token=sai');
+  await page.getByLabel(/^Mật khẩu mới/).fill('MatKhau2026');
+  await page.getByLabel(/Nhập lại mật khẩu mới/).fill('MatKhau2026');
+  await page.getByRole('button', { name: 'Đổi mật khẩu' }).click();
+  await expect(page.getByText('Liên kết không hợp lệ hoặc đã hết hạn')).toBeVisible();
+
+  await page.getByRole('link', { name: 'Gửi lại liên kết đặt lại mật khẩu' }).click();
+  await expect(page).toHaveURL('/forgot-password');
+  await page.getByLabel('Email').fill('minh@demo.vn');
+  await page.getByRole('button', { name: 'Gửi hướng dẫn' }).click();
+  await expect(page.getByText('Kiểm tra email của bạn')).toBeVisible();
+  await page.getByRole('link', { name: /Mở liên kết đặt lại mật khẩu/ }).click();
+  await expect(page).toHaveURL(/\/reset-password\?token=/);
+
+  // Kiểm tra dữ liệu nhập
+  await page.getByLabel(/^Mật khẩu mới/).fill('MatKhau2026');
+  await page.getByLabel(/Nhập lại mật khẩu mới/).fill('KhacNhau1');
+  await page.getByRole('button', { name: 'Đổi mật khẩu' }).click();
+  await expect(page.getByText('Mật khẩu xác nhận không khớp')).toBeVisible();
+
+  await page.getByLabel(/Nhập lại mật khẩu mới/).fill('MatKhau2026');
+  await page.getByRole('button', { name: 'Đổi mật khẩu' }).click();
+  await expect(page.getByText('Đã đổi mật khẩu')).toBeVisible();
+
+  // Điều hướng trong app (không tải lại trang) để mock còn nhớ mật khẩu mới
+  await page.getByRole('link', { name: 'Đăng nhập', exact: true }).last().click();
+  await page.getByLabel(/Email hoặc số điện thoại/).fill('minh@demo.vn');
+  await page.getByLabel(/^Mật khẩu/).fill('demo1234');
+  await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
+  await expect(page.getByText('Email/số điện thoại hoặc mật khẩu không đúng.')).toBeVisible();
+  await page.getByLabel(/^Mật khẩu/).fill('MatKhau2026');
+  await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
+  await expect(page).toHaveURL('/');
+  expect(errors).toEqual([]);
 });
