@@ -8,6 +8,7 @@ import request from 'supertest';
 import { configureApplication } from '../src/config/configure-application';
 import { validateEnvironment } from '../src/config/environment';
 import { HealthModule } from '../src/modules/health/health.module';
+import { AuthModule } from '../src/modules/auth/auth.module';
 
 // Test-only routes verify global infrastructure without shipping business endpoints.
 class ProbeDto {
@@ -34,14 +35,16 @@ describe('Sprint 0 API', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
+    const environment = validateEnvironment({ NODE_ENV: 'test', SWAGGER_ENABLED: 'true' });
     const module = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({
           isGlobal: true,
           ignoreEnvFile: true,
           skipProcessEnv: true,
-          load: [() => validateEnvironment({ NODE_ENV: 'test', SWAGGER_ENABLED: 'true' })],
+          load: [() => environment],
         }),
+        AuthModule.register(environment),
         HealthModule,
       ],
       controllers: [ProbeController],
@@ -73,6 +76,43 @@ describe('Sprint 0 API', () => {
     await request(app.getHttpServer()).get('/api/docs').expect(200);
   });
 
+  it('exposes the approved Auth contract and its implemented success responses', async () => {
+    const result = await request(app.getHttpServer()).get('/api/docs-json').expect(200);
+    const paths = result.body.paths;
+    expect(paths['/api/v1/auth/register'].post.responses).toMatchObject({
+      201: expect.anything(),
+      409: expect.anything(),
+      503: expect.anything(),
+    });
+    expect(paths['/api/v1/auth/login'].post.responses['200']).toBeDefined();
+    expect(paths['/api/v1/auth/refresh'].post.responses['200']).toBeDefined();
+    expect(paths['/api/v1/auth/logout'].post.responses['204']).toBeDefined();
+    expect(paths['/api/v1/auth/logout-all'].post.responses['204']).toBeDefined();
+    expect(paths['/api/v1/auth/me'].get.responses['200']).toBeDefined();
+    expect(paths['/api/v1/users/me']).toBeUndefined();
+  });
+
+  it('validates Auth DTOs and fails closed when Auth is disabled', async () => {
+    const invalid = await request(app.getHttpServer())
+      .post('/api/v1/auth/register')
+      .send({ email: 'invalid', password: 'short' })
+      .expect(400);
+    expect(invalid.body).toMatchObject({ code: 'VALIDATION_ERROR' });
+
+    const contractOnly = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: 'user@example.com', password: 'a secure phrase' })
+      .expect(503);
+    expect(contractOnly.body).toMatchObject({
+      code: 'AUTH_DISABLED',
+      message: 'Authentication is unavailable',
+    });
+    expect(contractOnly.body.accessToken).toBeUndefined();
+
+    const protectedRoute = await request(app.getHttpServer()).get('/api/v1/auth/me').expect(503);
+    expect(protectedRoute.body).toMatchObject({ code: 'AUTH_DISABLED' });
+  });
+
   it('transforms valid DTO input', async () => {
     const result = await request(app.getHttpServer())
       .post('/api/v1/test-probe')
@@ -90,7 +130,7 @@ describe('Sprint 0 API', () => {
         .expect(400);
       expect(result.body).toMatchObject({
         statusCode: 400,
-        code: 'HTTP_400',
+        code: 'VALIDATION_ERROR',
         message: 'Validation failed',
       });
       expect(result.body.errors.length).toBeGreaterThan(0);

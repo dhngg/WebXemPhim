@@ -42,7 +42,7 @@ Controller → Service → Repository → PrismaService → Neon PostgreSQL
 - Migrations được chạy bằng lệnh vận hành riêng, không tự chạy khi API khởi động.
 - Mọi lệnh kết nối từ repository từ chối database production và endpoint không được phê duyệt.
 
-Không dùng `db push`, `migrate reset` hoặc thao tác phá hủy dữ liệu. Neon direct database `Apartment` đã được introspect và đang trống (P4001); vì vậy không tạo baseline, bảng giả hoặc migration rỗng. Khi có schema nghiệp vụ được duyệt, thay đổi đó phải đi qua migration được review.
+Không dùng `db push`, `migrate reset` hoặc thao tác phá hủy dữ liệu. Neon development `Apartment` ban đầu trống (P4001); P01-07 đã áp dụng migration P01-01 được review để tạo users và auth_sessions, không tạo baseline/bảng giả. Schema nghiệp vụ tiếp theo phải qua migration được review.
 
 ## Lộ trình module
 

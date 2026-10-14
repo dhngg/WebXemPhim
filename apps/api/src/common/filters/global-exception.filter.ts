@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import type { ApiErrorResponse } from '@rental/shared';
+import { getApplicationError } from '../errors/application-exception';
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
@@ -23,13 +24,19 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const requestId = randomUUID();
     const path = request.path;
     const body = exception instanceof HttpException ? exception.getResponse() : undefined;
+    const applicationError = getApplicationError(exception);
     let message = status >= 500 ? 'Internal server error' : 'Request failed';
+    let code = status >= 500 ? 'INTERNAL_ERROR' : `HTTP_${status}`;
     let errors: string[] | undefined;
-    if (status < 500 && typeof body === 'string') {
+    if (applicationError) {
+      code = applicationError.code;
+      message = applicationError.definition.message;
+    } else if (status < 500 && typeof body === 'string') {
       message = body;
     } else if (status < 500 && body && typeof body === 'object' && 'message' in body) {
       const detail = body.message;
       if (Array.isArray(detail)) {
+        code = 'VALIDATION_ERROR';
         message = 'Validation failed';
         errors = detail.filter((item): item is string => typeof item === 'string');
       } else if (typeof detail === 'string') {
@@ -43,7 +50,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     if (status === HttpStatus.NOT_FOUND) message = 'Not Found';
     const result: ApiErrorResponse = {
       statusCode: status,
-      code: status >= 500 ? 'INTERNAL_ERROR' : `HTTP_${status}`,
+      code,
       message,
       ...(errors ? { errors } : {}),
       path,

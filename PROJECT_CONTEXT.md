@@ -56,7 +56,7 @@ Codex phụ trách backend, Prisma/Neon, database design, test backend, CI và t
 - Deployment frontend/API cùng site; cookie production dùng `__Host-`, `Path=/`, `Secure`, `HttpOnly`, `SameSite=Lax`, không đặt `Domain`.
 - Email verification và forgot/reset password được hoãn khỏi P01.
 
-Thiết kế đầy đủ tại [P01 Users/Auth](docs/backend/BACKEND_PART1_AUTH.md). Đây là thiết kế đã duyệt; implementation chưa bắt đầu.
+Thiết kế đầy đủ tại [P01 Users/Auth](docs/backend/BACKEND_PART1_AUTH.md). P01-01 migration đã áp dụng lên Neon development Apartment trong P01-07; hai bảng Auth hiện tồn tại và smoke test API thật đã PASS. P01 vẫn IN PROGRESS: thiếu PostgreSQL test riêng cho constraint/concurrency suite đầy đủ và các bước nghiệm thu/hardening còn lại.
 
 ## Đề xuất sản phẩm đang xem xét
 
@@ -64,6 +64,6 @@ Smart Rental Assistant là đề xuất mở rộng P04 dùng hard filters và r
 
 ## Trạng thái thực tế
 
-Sprint 0 và Sprint 0.1 đã có nền tảng monorepo, health API, frontend shell, Prisma/Neon infrastructure, CI và bộ kiểm tra đã ghi nhận. Neon direct database `Apartment` đã được truy cập; database trống, chưa có business schema hoặc migration. Authentication, RBAC, business entity và Sprint 1 chưa triển khai.
+Sprint 0 và Sprint 0.1 đã có nền tảng monorepo, health API, frontend shell, Prisma/Neon infrastructure và CI. Sprint 1/P01 đang thực hiện: Neon development Apartment hiện có users, auth_sessions và migration P01-01; register/login/refresh/logout/logout-all/me có code, các flow chính đã smoke trên DB thật. RBAC và các business entity P02–P13 chưa triển khai.
 
 Xem [CURRENT_STATUS](docs/CURRENT_STATUS.md) để biết trạng thái sống và [MASTER_ROADMAP](docs/MASTER_ROADMAP.md) để biết kế hoạch.

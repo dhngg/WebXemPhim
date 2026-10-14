@@ -1,10 +1,10 @@
 # P01 — Thiết kế Users/Auth
 
-**Trạng thái:** DESIGN APPROVED — P01-01 SCHEMA/MIGRATION CREATED, NOT APPLIED  
+**Trạng thái:** DESIGN APPROVED — P01-01 MIGRATION APPLIED ON NEON DEVELOPMENT — P01-02–P01-05 IMPLEMENTED — P01-06A LOCAL RATE LIMITING IMPLEMENTED — P01-07 SMOKE PASS — P01 IN PROGRESS
 **Ngày phê duyệt được ghi nhận:** 14/10/2026 (Asia/Saigon)  
 **Phạm vi:** PART P01 — Users/Auth
 
-Tài liệu này là nguồn sự thật kỹ thuật cho P01. P01-01 đã tạo Prisma models và migration SQL cho hai bảng Auth nhưng chưa chạy migration do chưa có PostgreSQL test database riêng. Neon database Apartment chưa bị thay đổi. Register/login/refresh/logout và các Auth flow vẫn chưa được triển khai.
+Tài liệu này là nguồn sự thật kỹ thuật cho P01. Trong P01-07, migration P01-01 đã áp dụng lên Neon development Apartment; metadata của hai bảng Auth và smoke API thật đã PASS. Chưa có PostgreSQL test riêng để chứng minh toàn bộ constraint/concurrency cases; P01 chưa nghiệm thu hoàn tất.
 
 ## 1. Mục tiêu và phạm vi P01
 
@@ -51,7 +51,7 @@ Không đưa global role, workspace ID, tenant ID hoặc workspace permission v�
 
 ## 4. Database schema đã duyệt
 
-Đây là schema P01-01 đã được biểu diễn trong Prisma và migration SQL reviewable. Migration chưa được thực thi trên database.
+Đây là schema P01-01 đã được biểu diễn trong Prisma và áp dụng lên Neon development ngày 14/10/2026. P01-07 xác minh metadata bảng, unique/index, partial unique family và foreign keys; suite constraint/concurrency đầy đủ trên PostgreSQL test riêng vẫn NOT RUN.
 
 ### 4.1. users
 
@@ -157,6 +157,18 @@ JWT dùng HS256 và chỉ chấp nhận algorithm allowlist đã cấu hình. Cl
 
 Không đưa role/permission workspace hoặc dữ liệu nhạy cảm vào JWT. Signing secret tối thiểu 256 bit, riêng cho từng môi trường, không nằm trong Git/log/Markdown và phải hỗ trợ rotation có kiểm soát.
 
+P01-03 triển khai key ring từ environment dưới dạng `kid -> canonical base64 secret`. `AUTH_JWT_ACTIVE_KID` chọn key ký; verify chỉ nhận HS256 và chọn đúng key theo `kid`. P01-04 dùng security core này cho register/login thật. Quy trình rotation khuyến nghị:
+
+1. Thêm key mới vào key ring nhưng chưa chuyển active key.
+2. Triển khai key ring mới tới toàn bộ instance.
+3. Chuyển active key sang `kid` mới.
+4. Giữ key cũ ít nhất qua TTL access token 10 phút và thời gian rollout an toàn.
+5. Gỡ key cũ sau khi không còn token hợp lệ ký bằng key đó.
+
+Secret manager, người có quyền rotation và lịch rotation production vẫn cần Product Owner/operations chốt. Source không hardcode secret và lỗi cấu hình không phản chiếu giá trị secret.
+
+Password hashing P01-03 dùng Argon2id với baseline `memoryCost=19456 KiB`, `timeCost=2`, `parallelism=1`, hash 32 byte. Đây là mức sàn cấu hình; cần benchmark trên hạ tầng triển khai trước production và chỉ điều chỉnh tăng từ baseline.
+
 ### 6.2. Refresh token
 
 - Token opaque được tạo bằng CSPRNG với entropy tối thiểu 256 bit và mã hóa base64url.
@@ -179,7 +191,7 @@ Partial unique index bảo đảm một family không có hai generation chưa b
 
 Xử lý retry/reuse:
 
-- Token ROTATED được dùng lại trong 10 giây: trả lỗi refresh không hợp lệ nhưng không đánh dấu reuse và không thu hồi family. Frontend single-flight phải để request thắng cung cấp token mới cho các request đang chờ.
+- Token ROTATED được dùng lại trong 10 giây: trả `409 TOKEN_ALREADY_ROTATED`, không đánh dấu reuse và không thu hồi family. Frontend single-flight phải để request thắng cung cấp token mới cho các request đang chờ.
 - Token ROTATED được dùng lại sau 10 giây: coi là reuse đáng ngờ, thu hồi generation đang active trong family và trả TOKEN_REUSE_DETECTED.
 - Không lưu token mới dạng thô để phát lại. Nếu server commit rotation nhưng response thành công bị mất, client có thể không còn token mới và phải đăng nhập lại; grace window ngăn false-positive thu hồi family nhưng không thể khôi phục token thô đã mất.
 
@@ -221,7 +233,7 @@ CORS chỉ kiểm soát browser đọc response và gửi credential theo chính
 
 ## 8. API contract chi tiết
 
-Tất cả endpoint dưới /api/v1. Đây là APPROVED DESIGN / NOT IMPLEMENTED.
+Tất cả endpoint dưới `/api/v1`. DTO, error mapping, service interface, route metadata và OpenAPI là IMPLEMENTED CONTRACT từ P01-02. Register/login business logic là IMPLEMENTED từ P01-04. Refresh/logout/logout-all/me và access guard là IMPLEMENTED từ P01-05.
 
 ### 8.1. POST /auth/register
 
@@ -240,7 +252,7 @@ Tất cả endpoint dưới /api/v1. Đây là APPROVED DESIGN / NOT IMPLEMENTED
 
 - Không nhận refresh token trong body; đọc cookie HttpOnly.
 - Thành công: 200, rotation cookie và trả accessToken, expiresIn=600, user.
-- Lỗi: REFRESH_TOKEN_INVALID, TOKEN_REUSE_DETECTED, ACCOUNT_DISABLED, RATE_LIMITED.
+- Lỗi: TOKEN_ALREADY_ROTATED, REFRESH_TOKEN_INVALID, TOKEN_REUSE_DETECTED, ACCOUNT_DISABLED, RATE_LIMITED.
 
 ### 8.4. POST /auth/logout
 
@@ -347,6 +359,31 @@ Không dùng database production. Test database và quy trình migration test ph
 
 ## 12. Acceptance criteria
 
+### P01-06A — Rate limiting đã triển khai
+
+Guard chạy sau Origin/CSRF và trước DTO pipes/business service. Bộ đếm áp dụng cho mọi request đi qua guard, gồm thành công, credentials sai và payload không hợp lệ. Không tra sự tồn tại của email, không reset quota sau login thành công. Auth tắt vẫn trả `AUTH_DISABLED` như trước.
+
+| Endpoint | Cửa sổ mặc định | Quota độc lập                                              |
+| -------- | --------------- | ---------------------------------------------------------- |
+| register | 900 giây        | 5/IP                                                       |
+| login    | 900 giây        | 30/IP và 10/email trim/lowercase, dùng chung qua các IP    |
+| refresh  | 60 giây         | 60/IP và 30/family, dùng chung qua các token generation/IP |
+
+Environment tương ứng: `AUTH_RATE_LIMIT_REGISTER_WINDOW_SECONDS`, `AUTH_RATE_LIMIT_REGISTER_IP_MAX`, `AUTH_RATE_LIMIT_LOGIN_WINDOW_SECONDS`, `AUTH_RATE_LIMIT_LOGIN_IP_MAX`, `AUTH_RATE_LIMIT_LOGIN_EMAIL_MAX`, `AUTH_RATE_LIMIT_REFRESH_WINDOW_SECONDS`, `AUTH_RATE_LIMIT_REFRESH_IP_MAX`, `AUTH_RATE_LIMIT_REFRESH_FAMILY_MAX`. Các giá trị phải là số nguyên dương; window tối đa 86400 giây, quota tối đa 100000. Giá trị sai khiến cấu hình fail-fast.
+
+- Fixed window bắt đầu từ request đầu tiên cho bucket, reset khi hết window; request bị từ chối không kéo dài window. Các quota kiểm tra tuần tự IP trước, email/family sau. Request bị chặn bởi quota sau vẫn đã tiêu thụ quota IP.
+- Refresh family được lookup chỉ đọc bằng token digest qua service/repository sau kiểm tra IP; không tin family ID từ body/JWT. Token thiếu/sai vẫn bị giới hạn IP. Lookup DB lỗi trả lỗi nội bộ đã lọc và không chạy refresh business logic.
+- HTTP `429 RATE_LIMITED` giữ nguyên `ApiErrorResponse`, thêm `Retry-After` là số giây nguyên dương. CORS expose header này; OpenAPI mô tả cho cả ba route. Không công bố IP/email/family hay loại quota trong lỗi. Limiter không đặt/xóa cookie khi chặn.
+- IPv4-mapped IPv6 được chuẩn hóa về IPv4; IPv6 dùng subnet /64 để tránh đổi host bits vượt quota. Các user dùng chung NAT/subnet chia sẻ quota IP.
+- `TRUSTED_PROXY_CIDRS` mặc định rỗng: Express không tin `X-Forwarded-For`. Chỉ chấp nhận danh sách IP hoặc CIDR cụ thể, không nhận boolean, hop count, tên mạng, wildcard hoặc /0. Express đi từ socket peer ngược chuỗi XFF đến hop đầu tiên không tin cậy. Chỉ khai báo địa chỉ proxy thật; proxy phải overwrite/append XFF đúng nguồn và không để client truy cập từ subnet proxy. Xem [Express behind proxies](https://expressjs.com/en/guide/behind-proxies/).
+- Store in-memory theo process, HMAC các định danh bằng khóa ngẫu nhiên riêng process, không lưu raw email/IP/family hoặc log password/token. `AUTH_RATE_LIMIT_MAX_KEYS=20000` giới hạn tổng bucket (1–1000000); cleanup bucket hết hạn khi có request. Khi đầy, từ chối bucket mới với 429 và Retry-After đến thời điểm có bucket hết hạn; không đẩy bucket còn hiệu lực ra để tạo đường bypass.
+
+**Giới hạn:** Đây là limiter local/single-instance, reset khi process restart và không đồng bộ giữa replica. Chưa có shared store, chưa production-ready cho rate limiting distributed. Bước production cần store dùng chung (ví dụ Redis), thao tác tăng/expiry atomic, chính sách lỗi store, TTL/cleanup và test nhiều instance; chưa triển khai hoặc tạo dịch vụ cloud trong task này. Quota email có thể bị kẻ khác tiêu thụ để gây khóa tạm thời; không khóa tài khoản vĩnh viễn. Fixed window cho phép burst tại ranh giới cửa sổ; chưa benchmark tải production.
+
+P01-06A không cần PostgreSQL test để kiểm chứng limiter. Các test API dùng repository mock cho family lookup; trạng thái DB/concurrency P01-05 vẫn giữ nguyên BLOCKED.
+
+### Điều kiện hoàn thành toàn bộ P01
+
 Chỉ đánh dấu backend P01 hoàn thành khi:
 
 - Prisma schema và migration chỉ tạo users/auth_sessions đã được review và áp dụng đúng development database.
@@ -396,4 +433,4 @@ Các phụ thuộc này phải được chốt trước task liên quan; chúng 
 - Business entities ngoài users/auth_sessions.
 - Access-token denylist, DPoP hoặc mTLS.
 
-**P01 DESIGN APPROVED — P01-01 SCHEMA/MIGRATION CREATED, NOT APPLIED; AUTH FLOWS NOT STARTED**
+**P01 DESIGN APPROVED — P01-07 MIGRATION APPLIED AND DEVELOPMENT SMOKE PASS — P01 IN PROGRESS**
