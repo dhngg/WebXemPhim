@@ -1,7 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import {
+  APPLICATION_ERROR_DEFINITIONS,
   ApplicationException,
-  AUTH_ERROR_DEFINITIONS,
   getApplicationError,
 } from './application-exception';
 
@@ -18,10 +18,19 @@ describe('application error mapping', () => {
     ['RATE_LIMITED', HttpStatus.TOO_MANY_REQUESTS],
     ['AUTH_DISABLED', HttpStatus.SERVICE_UNAVAILABLE],
     ['CSRF_VALIDATION_FAILED', HttpStatus.FORBIDDEN],
+    ['WORKSPACE_NOT_FOUND', HttpStatus.NOT_FOUND],
+    ['WORKSPACE_ARCHIVED', HttpStatus.CONFLICT],
+    ['WORKSPACE_OWNER_CONFLICT', HttpStatus.CONFLICT],
+    ['WORKSPACE_MEMBER_NOT_FOUND', HttpStatus.NOT_FOUND],
+    ['WORKSPACE_MEMBER_ALREADY_EXISTS', HttpStatus.CONFLICT],
+    ['WORKSPACE_OWNER_PROTECTED', HttpStatus.CONFLICT],
   ] as const)('maps %s to HTTP %s', (code, status) => {
     const error = new ApplicationException(code);
     expect(error.getStatus()).toBe(status);
-    expect(getApplicationError(error)).toEqual({ code, definition: AUTH_ERROR_DEFINITIONS[code] });
+    expect(getApplicationError(error)).toEqual({
+      code,
+      definition: APPLICATION_ERROR_DEFINITIONS[code],
+    });
   });
 
   it('does not map arbitrary errors as public application errors', () => {

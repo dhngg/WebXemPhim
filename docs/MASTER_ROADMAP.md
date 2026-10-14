@@ -2,13 +2,13 @@
 
 ## Đang ở đâu?
 
-**Sprint hiện tại:** Sprint 1 / P01 IN PROGRESS. P01-07 đã áp dụng migration P01-01 lên Neon development Apartment và smoke Auth API thật PASS; P01 chưa nghiệm thu toàn phần.
+**Sprint hiện tại:** Sprint 1 / P02 IN PROGRESS sau P02-06. Workspace schema, lifecycle, membership và ownership transfer đã có.
 
 **Phần đã hoàn thành:** monorepo, health API, frontend shell, Prisma/Neon, CI; Neon development hiện có users và auth_sessions. Auth core/flows và local rate limiting đã có code, smoke flow chính PASS.
 
 **Thiết kế tiếp theo đã được duyệt:** thiết kế P01 Users/Auth đã được chốt tại [BACKEND_PART1_AUTH](backend/BACKEND_PART1_AUTH.md).
 
-**Bước tiếp theo cần chủ dự án phê duyệt/giao việc:** review P01-07, cung cấp PostgreSQL test riêng cho suite constraint/concurrency, rồi giao task nghiệm thu/hardening tiếp theo; không tự chuyển task.
+**Bước tiếp theo cần chủ dự án phê duyệt/giao việc:** review P02-06, chuẩn bị PostgreSQL test database để chạy concurrency stress và chốt permission matrix MANAGER/STAFF; không tự chuyển task.
 
 Xem trạng thái cập nhật tại [CURRENT_STATUS](CURRENT_STATUS.md) và bối cảnh sản phẩm tại [PROJECT_CONTEXT](../PROJECT_CONTEXT.md).
 
@@ -33,7 +33,7 @@ P01–P13 không tự chuyển sang triển khai khi chưa có task được ch�
 
 **Frontend cần làm:** React shell, trang chủ, trang 404 và các trạng thái đang tải, lỗi và kết nối API.
 
-**Trạng thái hiện tại:** **IN PROGRESS** ở P01. P01-01 migration đã áp dụng lên Neon development, Auth API flow chính đã smoke PASS; thiếu kiểm thử PostgreSQL test riêng và nghiệm thu toàn P01. P02 Workspace/RBAC vẫn **NOT STARTED**.
+**Trạng thái hiện tại:** **IN PROGRESS** sau P02-06. Schema/migration và API workspace lifecycle, membership, ownership transfer đã có; permission matrix chi tiết và PostgreSQL concurrency stress còn thiếu.
 
 ### Sprint 1 — Tài khoản và không gian quản lý
 
@@ -45,7 +45,7 @@ P01–P13 không tự chuyển sang triển khai khi chưa có task được ch�
 
 **Frontend cần làm:** trang đăng nhập/đăng ký, trạng thái đăng nhập, chặn trang cần quyền và giao diện chọn không gian, thành viên.
 
-**Trạng thái hiện tại:** **IN PROGRESS** ở P01. P01-01 đã tạo Prisma schema/migration nhưng chưa chạy database; Auth flows chưa triển khai. P02 Workspace/RBAC vẫn **NOT STARTED**.
+**Trạng thái hiện tại:** **IN PROGRESS** sau P02-06. P01 Auth đã có code và smoke development; workspace API foundation, lifecycle, membership, ownership transfer và migration Neon development đã có.
 
 ### Sprint 2 — Quản lý tòa nhà và phòng
 
@@ -139,7 +139,7 @@ Chi tiết đề xuất tại [SMART_RENTAL_ASSISTANT](marketplace/SMART_RENTAL_
 | ---- | ------ | ----------------------------------------------------------------------------------------------------- | --------- | ---------- | ------------------------------- |
 | P00  | S0     | Monorepo, API health, Prisma/Neon, CI / app shell và trạng thái cơ bản                                | —         | G0         | COMPLETED                       |
 | P01  | S1     | Users, Auth, session, register/login/refresh/logout / login, register, auth state, route guard        | P00       | G1         | IN PROGRESS (P01-07 smoke PASS) |
-| P02  | S1     | Workspace, membership, RBAC, guard / chọn workspace, quản lý thành viên                               | P01       | G2         | NOT STARTED                     |
+| P02  | S1     | Workspace, membership, RBAC, guard / chọn workspace, quản lý thành viên                               | P01       | G2         | IN PROGRESS (P02-06 transfer)   |
 | P03  | S2     | Building, room, amenity, image/media / quản lý tòa nhà, phòng, tải ảnh                                | P02       | G3         | NOT STARTED                     |
 | P04  | S3     | Listing, search/filter/map cơ bản; đề xuất smart recommendations/routing / tìm kiếm, bản đồ, chi tiết | P03       | G4         | NOT STARTED                     |
 | P05  | S3     | Viewing request và vòng đời xử lý / đặt lịch và quản lý yêu cầu xem                                   | P04, P02  | G5         | NOT STARTED                     |

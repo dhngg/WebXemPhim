@@ -64,6 +64,6 @@ Smart Rental Assistant là đề xuất mở rộng P04 dùng hard filters và r
 
 ## Trạng thái thực tế
 
-Sprint 0 và Sprint 0.1 đã có nền tảng monorepo, health API, frontend shell, Prisma/Neon infrastructure và CI. Sprint 1/P01 đang thực hiện: Neon development Apartment hiện có users, auth_sessions và migration P01-01; register/login/refresh/logout/logout-all/me có code, các flow chính đã smoke trên DB thật. RBAC và các business entity P02–P13 chưa triển khai.
+Sprint 0 và Sprint 0.1 đã có nền tảng monorepo, health API, frontend shell, Prisma/Neon infrastructure và CI. P01 Auth hiện có migration trên Neon development, code và smoke flow chính; vẫn chưa production-ready. Sprint 1/P02 đang thực hiện: Prisma schema, API workspace create/list/detail/archive/restore, membership management và ownership transfer OWNER-only, DB-backed guard cùng migration P02 trên Neon development đã có; constraint chính đã kiểm tra trực tiếp nhưng PostgreSQL concurrency stress và permission matrix chi tiết còn thiếu, P03–P13 chưa triển khai.
 
 Xem [CURRENT_STATUS](docs/CURRENT_STATUS.md) để biết trạng thái sống và [MASTER_ROADMAP](docs/MASTER_ROADMAP.md) để biết kế hoạch.

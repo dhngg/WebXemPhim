@@ -37,15 +37,18 @@ export class AuthModule {
     ];
     if (!environment.AUTH_ENABLED) {
       return {
+        global: true,
         module: AuthModule,
         controllers: [AuthController],
         providers: [
           ...commonProviders,
           { provide: AUTH_SERVICE, useClass: ContractOnlyAuthService },
         ],
+        exports: [AUTH_SERVICE, AUTH_HTTP_SECURITY, AccessAuthGuard, AuthOriginGuard],
       };
     }
     return {
+      global: true,
       module: AuthModule,
       controllers: [AuthController],
       providers: [
@@ -60,6 +63,7 @@ export class AuthModule {
         },
         { provide: AUTH_SERVICE, useExisting: AuthService },
       ],
+      exports: [AUTH_SERVICE, AUTH_HTTP_SECURITY, AccessAuthGuard, AuthOriginGuard],
     };
   }
 }

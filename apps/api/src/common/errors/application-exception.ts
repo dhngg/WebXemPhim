@@ -1,12 +1,14 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
-import type { AuthErrorCode } from '@rental/shared';
+import type { ApplicationErrorCode } from '@rental/shared';
 
 export interface ApplicationErrorDefinition {
   status: HttpStatus;
   message: string;
 }
 
-export const AUTH_ERROR_DEFINITIONS: Readonly<Record<AuthErrorCode, ApplicationErrorDefinition>> = {
+export const APPLICATION_ERROR_DEFINITIONS: Readonly<
+  Record<ApplicationErrorCode, ApplicationErrorDefinition>
+> = {
   VALIDATION_ERROR: { status: HttpStatus.BAD_REQUEST, message: 'Validation failed' },
   EMAIL_ALREADY_EXISTS: { status: HttpStatus.CONFLICT, message: 'Email already exists' },
   INVALID_CREDENTIALS: { status: HttpStatus.UNAUTHORIZED, message: 'Invalid credentials' },
@@ -35,18 +37,36 @@ export const AUTH_ERROR_DEFINITIONS: Readonly<Record<AuthErrorCode, ApplicationE
     status: HttpStatus.FORBIDDEN,
     message: 'Request origin validation failed',
   },
+  WORKSPACE_NOT_FOUND: { status: HttpStatus.NOT_FOUND, message: 'Workspace not found' },
+  WORKSPACE_ARCHIVED: { status: HttpStatus.CONFLICT, message: 'Workspace is archived' },
+  WORKSPACE_OWNER_CONFLICT: {
+    status: HttpStatus.CONFLICT,
+    message: 'Workspace owner could not be changed',
+  },
+  WORKSPACE_MEMBER_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    message: 'Workspace member not found',
+  },
+  WORKSPACE_MEMBER_ALREADY_EXISTS: {
+    status: HttpStatus.CONFLICT,
+    message: 'Workspace membership already exists',
+  },
+  WORKSPACE_OWNER_PROTECTED: {
+    status: HttpStatus.CONFLICT,
+    message: 'Workspace owner must be changed through ownership transfer',
+  },
 };
 
 export class ApplicationException extends HttpException {
-  constructor(readonly code: AuthErrorCode) {
-    const definition = AUTH_ERROR_DEFINITIONS[code];
+  constructor(readonly code: ApplicationErrorCode) {
+    const definition = APPLICATION_ERROR_DEFINITIONS[code];
     super(definition.message, definition.status);
   }
 }
 
 export function getApplicationError(
   exception: unknown,
-): { code: AuthErrorCode; definition: ApplicationErrorDefinition } | undefined {
+): { code: ApplicationErrorCode; definition: ApplicationErrorDefinition } | undefined {
   if (!(exception instanceof ApplicationException)) return undefined;
-  return { code: exception.code, definition: AUTH_ERROR_DEFINITIONS[exception.code] };
+  return { code: exception.code, definition: APPLICATION_ERROR_DEFINITIONS[exception.code] };
 }

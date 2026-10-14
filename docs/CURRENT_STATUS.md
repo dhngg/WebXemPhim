@@ -2,15 +2,15 @@
 
 | Mục                        | Trạng thái                 | Bằng chứng                                                                                   |
 | -------------------------- | -------------------------- | -------------------------------------------------------------------------------------------- |
-| Sprint hiện tại            | Sprint 1 / P01 IN PROGRESS | P01-01 đến P01-07 có triển khai; P01 chưa nghiệm thu toàn phần                               |
-| Neon development Apartment | MIGRATION APPLIED          | P01-01 áp dụng ngày 14/10/2026; có bảng users, auth_sessions và _prisma_migrations           |
+| Sprint hiện tại            | Sprint 1 / P02 IN PROGRESS | P02-06 đã triển khai ownership transfer; P01 chưa nghiệm thu toàn phần                       |
+| Neon development Apartment | MIGRATIONS APPLIED         | P01-01 và P02 migration áp dụng ngày 14/10/2026; schema hiện đã đồng bộ                      |
 | Auth API                   | SMOKE PASS                 | Register, login, me, refresh, duplicate grace, logout, revoked refresh trên Neon development |
 | Kiểm thử còn thiếu         | BLOCKED                    | Chưa có PostgreSQL test tách biệt để chạy constraint/concurrency suite đầy đủ                |
-| P02 Workspace/RBAC         | NOT STARTED                | Không có migration hoặc code nghiệp vụ P02                                                   |
+| P02 Workspace/RBAC         | P02-06 TRANSFER COMPLETE   | Workspace lifecycle, membership và ownership transfer đã có; stress DB còn thiếu             |
 
 ## Quyết định đã duyệt
 
-1. P01 chỉ tạo hai bảng `users` và `auth_sessions`; 24 bảng còn lại vẫn planned.
+1. P01 tạo hai bảng `users`, `auth_sessions`; P02 tạo và đã áp dụng hai bảng `workspaces`, `workspace_memberships` trên Neon development; 22 bảng P03–P13 còn lại vẫn planned.
 2. Contract register/login/me/refresh/logout/logout-all và chính sách Auth trong [BACKEND_PART1_AUTH](backend/BACKEND_PART1_AUTH.md).
 3. JWT HS256 TTL 10 phút; refresh family 30 ngày, rotation atomic, grace 10 giây.
 4. Password Argon2id 12–128 ký tự; deployment cùng site và chính sách cookie production đã chốt.
@@ -18,13 +18,33 @@
 ## Phụ thuộc còn mở trước implementation
 
 1. Hostname/origin cụ thể cho từng môi trường.
-2. PostgreSQL test database tách biệt để thực thi migration và kiểm thử constraint.
+2. PostgreSQL test database tách biệt để chạy integration/concurrency stress test lặp lại mà không phụ thuộc Neon development.
 3. Secret manager cụ thể, quyền quản trị key và quy trình vận hành rotation HS256.
 4. Quyền/người chịu trách nhiệm chỉnh frontend cho tích hợp P01.
 
 P01-03 dùng key ring có `kid`: ký bằng active key và verify bằng các key còn hiệu lực. Secret manager/nguồn cấp biến môi trường production chưa được tự giả định.
 
-Mô hình workspace membership và role chi tiết vẫn chờ duyệt trước P02. P01 đang triển khai từng task; các Auth flow đã có code nhưng toàn bộ P01 chưa hoàn thành cho tới khi các task hardening/nghiệm thu còn lại được duyệt và thực hiện.
+P02-01 dùng role theo từng membership, không đưa role chủ nhà vào `users`. P01 đã có code Auth và smoke test nhưng toàn bộ P01 vẫn chưa production-ready do còn thiếu concurrency stress test và distributed rate limiting.
+
+## Kết quả P02-01–P02-06 — Workspace & RBAC Foundation
+
+- Đã thêm Prisma models `Workspace`, `WorkspaceMembership`, enum role `OWNER`/`MANAGER`/`STAFF` và workspace status `ACTIVE`/`ARCHIVED`.
+- Một user chỉ có một membership trong mỗi workspace qua unique `(workspace_id, user_id)`; có index `user_id` và `(workspace_id, role)` phục vụ tra cứu/phân quyền.
+- Foreign key từ membership tới `users` và `workspaces` dùng `RESTRICT`; workspace có archive state và database trigger chặn hard delete.
+- Partial unique index ngăn nhiều OWNER; deferred constraint triggers yêu cầu đúng một OWNER tại commit. Create và ownership transfer dùng transaction `Serializable`; transfer khóa row workspace trước khi đổi role.
+- Migration `202610140002_p02_workspace_membership_foundation`: **APPLIED** trên Neon development Apartment trong P02-03; không reset, `db push` hoặc drop dữ liệu.
+- Backend đã có `POST /workspaces`, `GET /workspaces`, `GET /workspaces/:workspaceId`, DTO/OpenAPI, service/repository và DB-backed membership guard. Client không được gửi role khi tạo workspace.
+- P02-04 thêm `PATCH /workspaces/:workspaceId/archive` và `/restore`: OWNER-only, Origin/CSRF, row lock + recheck OWNER trong transaction, idempotent và không xóa membership/dữ liệu. Workspace archived vẫn đọc được; business write guard trả `WORKSPACE_ARCHIVED`.
+- P02-05 thêm list/add/update-role/delete membership. OWNER được kiểm tra từ database; email được chuẩn hóa; chỉ user ACTIVE và role MANAGER/STAFF được thêm. OWNER không thể bị đổi role hoặc xóa qua các API này.
+- P02-06 thêm `POST /workspaces/:workspaceId/transfer-ownership`: OWNER hiện tại chuyển quyền atomic cho target membership có user ACTIVE; OWNER cũ luôn thành MANAGER. Workspace, quyền và target được kiểm tra lại trong transaction sau row lock.
+- Kiểm tra toàn repository: Prisma format/validate/generate, lint, format check, typecheck và build PASS; 113 backend unit/static, 5 shared, 4 frontend và 42 API tests PASS.
+- Kiểm tra trực tiếp trên PostgreSQL: PASS cho metadata, tạo workspace cùng OWNER, chặn OWNER thứ hai, chặn workspace thiếu OWNER, chặn hard delete và chuyển OWNER atomic. Mọi dữ liệu kiểm tra được rollback.
+- Concurrency stress test với nhiều connection đồng thời: NOT RUN; chưa được coi là đã chứng minh dưới tải cạnh tranh.
+- Kiểm tra P02-04: lint, API typecheck/build, 123 backend unit/static tests và 45 API tests PASS. Shared/frontend tests NOT RUN vì không thay đổi trong task.
+- Kiểm tra P02-05: lint, format, monorepo typecheck, API build, 135 backend unit/static tests, 50 API tests và 5 shared contract tests PASS. Frontend tests NOT RUN; frontend không thay đổi.
+- Kiểm tra P02-06: API typecheck/build, 15 unit test repository/service và 15 API test workspace PASS. Concurrent request test PASS ở mock transaction/API; PostgreSQL stress nhiều connection NOT RUN.
+- Chưa có permission matrix nghiệp vụ chi tiết MANAGER/STAFF; frontend không thay đổi.
+- Chi tiết tại [BACKEND_PART2_WORKSPACE](backend/BACKEND_PART2_WORKSPACE.md).
 
 ## Kết quả P01-07 — Neon development
 

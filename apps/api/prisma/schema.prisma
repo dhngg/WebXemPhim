@@ -26,18 +26,62 @@ enum AuthSessionRevokeReason {
   @@map("auth_session_revoke_reason")
 }
 
+enum WorkspaceRole {
+  OWNER
+  MANAGER
+  STAFF
+
+  @@map("workspace_role")
+}
+
+enum WorkspaceStatus {
+  ACTIVE
+  ARCHIVED
+
+  @@map("workspace_status")
+}
+
 model User {
-  id           String        @id @default(uuid()) @db.Uuid
-  email        String        @unique(map: "users_email_key") @db.VarChar(254)
-  passwordHash String        @map("password_hash") @db.Text
-  displayName  String?       @map("display_name") @db.VarChar(100)
-  status       UserStatus    @default(ACTIVE)
-  disabledAt   DateTime?     @map("disabled_at") @db.Timestamptz(6)
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id           String                @id @default(uuid()) @db.Uuid
+  email        String                @unique(map: "users_email_key") @db.VarChar(254)
+  passwordHash String                @map("password_hash") @db.Text
+  displayName  String?               @map("display_name") @db.VarChar(100)
+  status       UserStatus            @default(ACTIVE)
+  disabledAt   DateTime?             @map("disabled_at") @db.Timestamptz(6)
+  createdAt    DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
   sessions     AuthSession[]
+  memberships  WorkspaceMembership[]
 
   @@map("users")
+}
+
+model Workspace {
+  id          String                @id @default(uuid()) @db.Uuid
+  name        String                @db.VarChar(100)
+  status      WorkspaceStatus       @default(ACTIVE)
+  archivedAt  DateTime?             @map("archived_at") @db.Timestamptz(6)
+  createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  memberships WorkspaceMembership[]
+
+  @@map("workspaces")
+}
+
+model WorkspaceMembership {
+  id          String        @id @default(uuid()) @db.Uuid
+  workspaceId String        @map("workspace_id") @db.Uuid
+  userId      String        @map("user_id") @db.Uuid
+  role        WorkspaceRole
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([workspaceId, userId], map: "workspace_memberships_workspace_id_user_id_key")
+  @@index([userId], map: "workspace_memberships_user_id_idx")
+  @@index([workspaceId, role], map: "workspace_memberships_workspace_id_role_idx")
+  @@map("workspace_memberships")
 }
 
 model AuthSession {

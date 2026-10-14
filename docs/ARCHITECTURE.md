@@ -30,10 +30,10 @@ React Router quản lý route; TanStack Query quản lý request state và Axios
 - `apps/api/.env` là local-only và bị Git ignore.
 - Prisma config nằm trong `apps/api/prisma.config.ts`; `schema.prisma` không chứa URL.
 - CI tắt database để không phụ thuộc secret hoặc database production.
-- Neon direct database đang trống; không có Prisma model hoặc migration nghiệp vụ.
+- Neon development hiện có migration P01 cho `users`, `auth_sessions` và migration P02 cho `workspaces`, `workspace_memberships`. P02 constraint behavior đã kiểm tra trực tiếp; concurrency stress nhiều connection chưa chạy.
 
 ## API, bảo mật và phân quyền
 
-REST API dùng prefix `/api/v1`, Helmet, CORS allowlist, ValidationPipe và error contract thống nhất. Authentication/RBAC chưa được triển khai. Khi triển khai, phân quyền phải dựa trên workspace membership; không sử dụng role chủ nhà toàn cục.
+REST API dùng prefix `/api/v1`, Helmet, CORS allowlist, ValidationPipe và error contract thống nhất. P01 Auth và P02 workspace API foundation/lifecycle/membership/ownership transfer đã có trong source. Phân quyền workspace luôn tra membership từ database; role không nằm trong `users` hoặc access JWT và không được tin từ client. Workspace archived vẫn cho phép đọc theo quyền; route ghi nghiệp vụ phải yêu cầu workspace ACTIVE và repository tiếp tục kiểm tra OWNER/trạng thái trong transaction. API membership thường không được sửa hoặc xóa OWNER; chuyển OWNER là use case atomic riêng có row lock và database constraint.
 
 Xem chi tiết source-truth hiện hữu tại [Project Blueprint](architecture/PROJECT_BLUEPRINT.md) và contract tại [API_CONTRACT](API_CONTRACT.md).

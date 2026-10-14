@@ -5,6 +5,7 @@ import { PrismaModule } from './database/prisma/prisma.module';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AuthSecurityModule } from './modules/auth/security/auth-security.module';
+import { WorkspaceModule } from './modules/workspaces/workspace.module';
 
 const environment = loadEnvironment();
 
@@ -14,6 +15,7 @@ const environment = loadEnvironment();
     PrismaModule.register(environment),
     AuthSecurityModule.register(environment),
     AuthModule.register(environment),
+    WorkspaceModule,
     HealthModule,
   ],
 })

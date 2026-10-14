@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  AUTH_ERROR_CODES,
+  APPLICATION_ERROR_CODES,
   USER_STATUSES,
   type ApiErrorResponse,
   type AuthTokenResponse,
@@ -40,7 +40,7 @@ export class ApiErrorResponseDto implements ApiErrorResponse {
   @ApiProperty()
   statusCode!: number;
 
-  @ApiProperty({ enum: AUTH_ERROR_CODES })
+  @ApiProperty({ enum: APPLICATION_ERROR_CODES })
   code!: string;
 
   @ApiProperty()

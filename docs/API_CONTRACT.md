@@ -40,6 +40,31 @@ Application error code phải nằm trong trường `code` của [`ApiErrorRespo
 
 Contract source dùng base prefix `/api/v1`, vì vậy path runtime đầy đủ là `/api/v1/auth/*`. P01-07 đã áp dụng migration trên Neon development và smoke test register/login/me/refresh/logout/revocation bằng API thật PASS. Suite PostgreSQL constraint/concurrency đầy đủ vẫn chưa chạy do thiếu test database riêng.
 
+## Workspace — P02-06 OWNERSHIP TRANSFER IMPLEMENTED
+
+| Method | Path                                             | Mục đích                                                 | Thành công | Lỗi chính                                                                                                                                             |
+| ------ | ------------------------------------------------ | -------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/workspaces`                                    | Tạo workspace và OWNER trong một transaction             | 201        | UNAUTHORIZED, ACCOUNT_DISABLED, VALIDATION_ERROR                                                                                                      |
+| GET    | `/workspaces`                                    | Liệt kê workspace theo membership trong DB               | 200        | UNAUTHORIZED                                                                                                                                          |
+| GET    | `/workspaces/:workspaceId`                       | Xem workspace nếu có membership hợp lệ                   | 200        | UNAUTHORIZED, WORKSPACE_NOT_FOUND                                                                                                                     |
+| PATCH  | `/workspaces/:workspaceId/archive`               | Archive workspace, giữ nguyên dữ liệu và membership      | 200        | UNAUTHORIZED, CSRF_VALIDATION_FAILED, WORKSPACE_NOT_FOUND                                                                                             |
+| PATCH  | `/workspaces/:workspaceId/restore`               | Khôi phục workspace đã archive                           | 200        | UNAUTHORIZED, CSRF_VALIDATION_FAILED, WORKSPACE_NOT_FOUND                                                                                             |
+| GET    | `/workspaces/:workspaceId/members`               | OWNER xem danh sách membership và user đã đăng ký        | 200        | UNAUTHORIZED, WORKSPACE_NOT_FOUND                                                                                                                     |
+| POST   | `/workspaces/:workspaceId/members`               | OWNER thêm user ACTIVE bằng email với role MANAGER/STAFF | 201        | VALIDATION_ERROR, WORKSPACE_NOT_FOUND, WORKSPACE_ARCHIVED, WORKSPACE_MEMBER_NOT_FOUND, WORKSPACE_MEMBER_ALREADY_EXISTS                                |
+| PATCH  | `/workspaces/:workspaceId/members/:membershipId` | OWNER đổi role MANAGER/STAFF                             | 200        | VALIDATION_ERROR, WORKSPACE_NOT_FOUND, WORKSPACE_ARCHIVED, WORKSPACE_MEMBER_NOT_FOUND, WORKSPACE_OWNER_PROTECTED                                      |
+| DELETE | `/workspaces/:workspaceId/members/:membershipId` | OWNER xóa membership không phải OWNER                    | 204        | WORKSPACE_NOT_FOUND, WORKSPACE_ARCHIVED, WORKSPACE_MEMBER_NOT_FOUND, WORKSPACE_OWNER_PROTECTED                                                        |
+| POST   | `/workspaces/:workspaceId/transfer-ownership`    | OWNER chuyển quyền cho member ACTIVE hiện có             | 204        | VALIDATION_ERROR, UNAUTHORIZED, CSRF_VALIDATION_FAILED, WORKSPACE_NOT_FOUND, WORKSPACE_ARCHIVED, WORKSPACE_MEMBER_NOT_FOUND, WORKSPACE_OWNER_CONFLICT |
+
+Request tạo workspace chỉ nhận `name` đã trim, dài 1–100 ký tự. Role OWNER do backend gán; trường role/workspace ownership từ client bị validation từ chối. Response gồm thông tin workspace và `currentMembership.role`, không đưa role workspace vào access JWT.
+
+POST dùng exact Origin allowlist và `X-CSRF-Protection: 1`. Detail sử dụng access JWT để xác định user rồi tra `(workspace_id, user_id)` tại database; user không có membership nhận 404 để không làm lộ workspace tồn tại. List lấy trực tiếp các membership của user và có thể trả cả workspace archived để phục vụ audit/lifecycle về sau.
+
+Archive/restore chỉ cho OWNER theo membership trong database. Hai endpoint không nhận body, dùng Origin/CSRF như các request ghi khác và idempotent: archive workspace đã ARCHIVED hoặc restore workspace đã ACTIVE đều trả `200` với trạng thái hiện tại, không thay đổi lại timestamp. Archive chỉ cập nhật `status`/`archived_at`, không xóa membership hoặc dữ liệu. Workspace ARCHIVED vẫn đọc được theo membership; các thao tác ghi nghiệp vụ trả `409 WORKSPACE_ARCHIVED`.
+
+Membership management chỉ cho OWNER. Email thêm thành viên được trim/lowercase và chỉ khớp user `ACTIVE`; email không tồn tại hoặc user không ACTIVE cùng trả `WORKSPACE_MEMBER_NOT_FOUND`. Request role chỉ nhận `MANAGER` hoặc `STAFF`. Không API nào trong P02-05 được đổi/xóa OWNER; các trường hợp này trả `WORKSPACE_OWNER_PROTECTED`, còn chuyển OWNER thuộc P02-06. List vẫn hoạt động khi workspace archived, nhưng POST/PATCH/DELETE bị chặn. Repository khóa workspace và kiểm tra lại OWNER/trạng thái trong transaction trước khi ghi.
+
+Ownership transfer nhận `{ "targetMembershipId": "uuid" }` và chỉ OWNER hiện tại được gọi. Repository khóa row workspace, xác nhận workspace ACTIVE, kiểm tra lại OWNER hiện tại và target membership thuộc đúng workspace với user ACTIVE, rồi hạ OWNER cũ thành MANAGER và nâng target thành OWNER trong cùng transaction `Serializable`. Constraint database vẫn bảo vệ đúng một OWNER. Request cạnh tranh thua trả `WORKSPACE_OWNER_CONFLICT`; target thiếu/disabled trả `WORKSPACE_MEMBER_NOT_FOUND`. PostgreSQL concurrency stress nhiều connection vẫn chưa chạy.
+
 ### Rate limiting P01-06A
 
 Register/login/refresh trả `429 RATE_LIMITED` theo `ApiErrorResponse` và header `Retry-After` (số giây nguyên dương). Header được CORS expose và có trong OpenAPI. Mặc định: register 5/IP/900 giây; login 30/IP và 10/email đã trim/lowercase/900 giây; refresh 60/IP và 30/family/60 giây. Không công bố loại quota hoặc email có tồn tại trong response, không xóa cookie khi bị rate limit.
@@ -62,7 +87,6 @@ Contract, provider bản đồ, travel modes, ranking weights và budget mode m�
 
 | Nhóm            | Ví dụ phạm vi                                            | Trạng thái  |
 | --------------- | -------------------------------------------------------- | ----------- |
-| Workspace       | workspace, membership, role                              | NOT STARTED |
 | Property        | building, room, media, amenity                           | NOT STARTED |
 | Marketplace     | listing, search, filter, viewing                         | NOT STARTED |
 | Tenancy/finance | tenant, contract, rate, meter, invoice, payment, deposit | NOT STARTED |
