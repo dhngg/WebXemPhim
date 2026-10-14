@@ -8,7 +8,7 @@ import { AdminLayout } from '@/layouts/AdminLayout';
 import { GlobalBanners } from '@/layouts/parts/GlobalBanners';
 import { LoadingBlock } from '@/components/ui';
 import { ForbiddenPage, NotFoundPage, OfflinePage, RouteErrorBoundary, ServerErrorPage } from '@/pages/system/ErrorPages';
-import { GuestOnly, RequireAdmin, RequireAuth, RequireLinkedTenant } from './guards';
+import { GuestOnly, RequireAuth, RequireRole } from './guards';
 
 /** Lazy-load một named export (các trang được nhóm theo domain trong cùng file). */
 function lazyPage<M extends Record<string, unknown>>(loader: () => Promise<M>, name: keyof M) {
@@ -60,16 +60,27 @@ export const routes = [
       {
         element: <PublicLayout />,
         children: [
-          { index: true, element: lazyPage(publicPages, 'HomePage') },
-          { path: 'rooms', element: lazyPage(roomsPages, 'RoomsPage') },
-          { path: 'rooms/map', element: lazyPage(mapPages, 'RoomsMapPage') },
-          { path: 'rooms/:roomId', element: lazyPage(detailPages, 'RoomDetailPage') },
-          { path: 'rooms/:roomId/viewing', element: lazyPage(bookingPages, 'ViewingBookingPage') },
+          {
+            // Khu Tìm phòng: chỉ khách & người tìm phòng
+            element: <RequireRole allow={['GUEST', 'SEEKER']} />,
+            children: [
+              { index: true, element: lazyPage(publicPages, 'HomePage') },
+              { path: 'rooms', element: lazyPage(roomsPages, 'RoomsPage') },
+              { path: 'rooms/map', element: lazyPage(mapPages, 'RoomsMapPage') },
+              { path: 'rooms/:roomId/viewing', element: lazyPage(bookingPages, 'ViewingBookingPage') },
+            ],
+          },
+          {
+            // Chủ trọ / admin vẫn mở được tin đăng để xem trước & kiểm duyệt
+            element: <RequireRole allow={['GUEST', 'SEEKER', 'LANDLORD', 'ADMIN']} />,
+            children: [{ path: 'rooms/:roomId', element: lazyPage(detailPages, 'RoomDetailPage') }],
+          },
           { path: 'about', element: lazyPage(infoPages, 'AboutPage') },
           { path: 'help', element: lazyPage(infoPages, 'HelpPage') },
           { path: 'login', element: <GuestOnly>{lazyPage(authPages, 'LoginPage')}</GuestOnly> },
           { path: 'register', element: <GuestOnly>{lazyPage(authPages, 'RegisterPage')}</GuestOnly> },
           { path: 'forgot-password', element: lazyPage(authPages, 'ForgotPasswordPage') },
+          { path: 'reset-password', element: lazyPage(authPages, 'ResetPasswordPage') },
           { path: '403', element: <ForbiddenPage /> },
           { path: '500', element: <ServerErrorPage /> },
           { path: 'offline', element: <OfflinePage /> },
@@ -83,14 +94,28 @@ export const routes = [
             element: <UserLayout />,
             children: [
               { path: 'account', element: lazyPage(userPages, 'AccountPage') },
-              { path: 'my-viewings', element: lazyPage(userPages, 'MyViewingsPage') },
               { path: 'notifications', element: lazyPage(userPages, 'NotificationsPage') },
-              { path: 'workspaces/select', element: lazyPage(userPages, 'WorkspaceSelectPage') },
+              {
+                element: <RequireRole allow={['SEEKER']} />,
+                children: [
+                  { path: 'my-viewings', element: lazyPage(userPages, 'MyViewingsPage') },
+                  // Người tìm phòng đã thuê → liên kết hồ sơ; chủ trọ duyệt xong sẽ chuyển sang vai trò người thuê
+                  { path: 'link-tenant', element: lazyPage(tenantPages, 'LinkAccountPage') },
+                ],
+              },
+              {
+                element: <RequireRole allow={['LANDLORD']} />,
+                children: [{ path: 'workspaces/select', element: lazyPage(userPages, 'WorkspaceSelectPage') }],
+              },
             ],
           },
           {
             path: 'w/:workspaceId',
-            element: <WorkspaceLayout />,
+            element: (
+              <RequireRole allow={['LANDLORD']}>
+                <WorkspaceLayout />
+              </RequireRole>
+            ),
             children: [
               { index: true, element: <Navigate to="dashboard" replace /> },
               { path: 'dashboard', element: lazyPage(dashboardPages, 'DashboardPage') },
@@ -129,29 +154,28 @@ export const routes = [
           },
           {
             path: 'tenant',
-            element: <TenantLayout />,
+            element: (
+              <RequireRole allow={['TENANT']}>
+                <TenantLayout />
+              </RequireRole>
+            ),
             children: [
+              { index: true, element: lazyPage(tenantPages, 'TenantHomePage') },
               { path: 'link-account', element: lazyPage(tenantPages, 'LinkAccountPage') },
-              {
-                element: <RequireLinkedTenant />,
-                children: [
-                  { index: true, element: lazyPage(tenantPages, 'TenantHomePage') },
-                  { path: 'contracts', element: lazyPage(tenantPages, 'TenantContractsPage') },
-                  { path: 'invoices', element: lazyPage(tenantPages, 'TenantInvoicesPage') },
-                  { path: 'invoices/:invoiceId', element: lazyPage(tenantPages, 'TenantInvoiceDetailPage') },
-                  { path: 'payments/new', element: lazyPage(tenantPages, 'TenantPaymentPage') },
-                  { path: 'maintenance', element: lazyPage(tenantPages, 'TenantMaintenancePage') },
-                ],
-              },
+              { path: 'contracts', element: lazyPage(tenantPages, 'TenantContractsPage') },
+              { path: 'invoices', element: lazyPage(tenantPages, 'TenantInvoicesPage') },
+              { path: 'invoices/:invoiceId', element: lazyPage(tenantPages, 'TenantInvoiceDetailPage') },
+              { path: 'payments/new', element: lazyPage(tenantPages, 'TenantPaymentPage') },
+              { path: 'maintenance', element: lazyPage(tenantPages, 'TenantMaintenancePage') },
               { path: '*', element: <NotFoundPage /> },
             ],
           },
           {
             path: 'admin',
             element: (
-              <RequireAdmin>
+              <RequireRole allow={['ADMIN']}>
                 <AdminLayout />
-              </RequireAdmin>
+              </RequireRole>
             ),
             children: [
               { index: true, element: lazyPage(adminPages, 'AdminDashboardPage') },

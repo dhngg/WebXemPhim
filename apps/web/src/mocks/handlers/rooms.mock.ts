@@ -80,8 +80,8 @@ function workspaceListings(): PublicRoom[] {
           service: rate?.sanitation ?? 0,
         },
         description: r.description,
-        lat: b.lat ?? 10.8,
-        lng: b.lng ?? 106.7,
+        lat: b.lat ?? 21.03,
+        lng: b.lng ?? 105.82,
         landlord: {
           name: ws?.contactName ?? 'Chủ trọ',
           phoneMasked: ws ? `${ws.contactPhone.slice(0, 4)} *** ${ws.contactPhone.slice(-3)}` : '—',

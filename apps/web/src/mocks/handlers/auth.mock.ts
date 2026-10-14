@@ -18,6 +18,30 @@ export function currentMockUser(): MockUserRecord | null {
 
 export { requireSession };
 
+/**
+ * Đặt lại mật khẩu (mock). Không có email thật nên token được suy ra từ email:
+ * `demo.<base64url(email)>` — còn dùng được sau khi tải lại trang. Mỗi token chỉ dùng 1 lần
+ * và mật khẩu mới chỉ nhớ trong bộ nhớ (tải lại trang → về lại mật khẩu demo).
+ */
+const passwordOverrides: Record<string, string> = {};
+const usedResetTokens = new Set<string>();
+
+function toBase64Url(text: string) {
+  return btoa(text).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function fromBase64Url(text: string) {
+  try {
+    return atob(text.replace(/-/g, '+').replace(/_/g, '/'));
+  } catch {
+    return null;
+  }
+}
+
+/** Liên kết đặt lại mật khẩu mà "email" demo sẽ chứa — chỉ hiển thị ở chế độ mock. */
+export function demoResetLink(email: string) {
+  return `/reset-password?token=demo.${toBase64Url(email.trim().toLowerCase())}`;
+}
+
 export const authMock: AuthApi = {
   async me() {
     await simulate();
@@ -29,7 +53,7 @@ export const authMock: AuthApi = {
     await simulate();
     const id = identifier.trim().toLowerCase();
     const record = mockUsers.find((r) => r.user.email === id || r.user.phone === id.replace(/\s/g, ''));
-    if (!record || password !== MOCK_PASSWORD) {
+    if (!record || password !== (passwordOverrides[record.user.id] ?? MOCK_PASSWORD)) {
       throw new ApiError({ statusCode: 401, message: 'Email/số điện thoại hoặc mật khẩu không đúng.' });
     }
     mockSession.set(record.user.id);
@@ -77,5 +101,16 @@ export const authMock: AuthApi = {
   async requestPasswordReset() {
     await simulate();
     // Không tiết lộ email có tồn tại hay không.
+  },
+
+  async resetPassword({ token, password }) {
+    await simulate();
+    const email = token.startsWith('demo.') ? fromBase64Url(token.slice(5)) : null;
+    const record = email ? mockUsers.find((r) => r.user.email === email) : undefined;
+    if (!record || usedResetTokens.has(token)) {
+      throw new ApiError({ statusCode: 400, message: 'Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.' });
+    }
+    usedResetTokens.add(token);
+    passwordOverrides[record.user.id] = password;
   },
 };

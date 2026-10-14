@@ -3,7 +3,7 @@ import { httpClient, refreshAccessToken } from '@/services/http/httpClient';
 import { accessTokenStore } from '@/services/http/accessToken';
 import { ApiError } from '@/services/http/ApiError';
 import { authMock } from '@/mocks/handlers/auth.mock';
-import type { CurrentUser, LoginInput, RegisterInput, UpdateProfileInput } from './types';
+import type { CurrentUser, LoginInput, RegisterInput, ResetPasswordInput, UpdateProfileInput } from './types';
 
 export interface AuthApi {
   /** Trả về null nếu chưa đăng nhập. */
@@ -13,6 +13,8 @@ export interface AuthApi {
   logout(): Promise<void>;
   updateProfile(input: UpdateProfileInput): Promise<CurrentUser>;
   requestPasswordReset(email: string): Promise<void>;
+  /** Token sai / hết hạn / đã dùng → lỗi 400. */
+  resetPassword(input: ResetPasswordInput): Promise<void>;
 }
 
 /** Response DỰ KIẾN của login/register — chưa chốt với backend. */
@@ -55,6 +57,7 @@ const authHttp: AuthApi = {
   },
   updateProfile: (input) => httpClient.patch('/users/me', input),
   requestPasswordReset: (email) => httpClient.post('/auth/forgot-password', { email }, { skipAuthRefresh: true }),
+  resetPassword: (input) => httpClient.post('/auth/reset-password', input, { skipAuthRefresh: true }),
 };
 
 export const authApi: AuthApi = env.useMockApi ? authMock : authHttp;

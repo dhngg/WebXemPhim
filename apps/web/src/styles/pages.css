@@ -199,6 +199,8 @@
   border-radius: var(--radius-md);
   background: var(--color-surface-muted);
   border: 1px solid var(--color-border);
+  position: relative;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .search-hero__field svg {
   color: var(--color-primary);
@@ -212,21 +214,100 @@
   text-transform: uppercase;
   color: var(--color-text-muted);
 }
-.search-hero__field select {
-  border: 0;
-  background: transparent;
-  width: 100%;
-  font-weight: 600;
-  font-size: var(--text-sm);
-  padding: 2px 0;
-  cursor: pointer;
-}
-.search-hero__field select:focus {
-  outline: none;
-}
 .search-hero__field:focus-within {
   border-color: var(--color-primary);
   box-shadow: var(--focus-ring);
+}
+
+/* Dropdown bo tròn (components/ui/Listbox) — panel bám theo cả ô .search-hero__field */
+.listbox__button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+/* Ô cha đã hiện viền focus, bỏ khung vuông của chính nút */
+.listbox__button:focus,
+.listbox__button:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.listbox__value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-hero__field .listbox__chevron {
+  color: var(--color-text-muted);
+  transition: transform 0.15s ease;
+}
+.listbox--open .listbox__chevron {
+  transform: rotate(180deg);
+}
+.listbox__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 280px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  animation: listbox-in 0.12s ease-out;
+}
+.listbox__panel:focus {
+  outline: none;
+  box-shadow: var(--shadow-lg);
+}
+.listbox__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text);
+  cursor: pointer;
+}
+.listbox__option.is-active {
+  background: var(--color-primary-softer);
+}
+.listbox__option[aria-selected='true'] {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+.search-hero__field .listbox__option svg {
+  color: var(--color-primary);
+}
+@keyframes listbox-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .listbox__panel {
+    animation: none;
+  }
 }
 .trust-row {
   display: grid;

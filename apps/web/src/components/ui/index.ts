@@ -10,4 +10,5 @@ export { DataTable, type Column } from './DataTable';
 export { SearchInput, FilterBar, CurrencyInput, DatePicker, Select, parseVnd } from './Inputs';
 export { ImageUploader, validateImageFile } from './ImageUploader';
 export { Modal } from './Modal';
+export { Listbox, type ListboxOption } from './Listbox';
 export { StatCard, KeyValueList, Tabs, Section, ProgressBar } from './Misc';

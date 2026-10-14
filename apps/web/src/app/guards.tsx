@@ -3,7 +3,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useCurrentUser } from '@/features/auth/hooks';
 import { landingFor, safeRedirect } from '@/features/auth/landing';
 import { ErrorState, LoadingBlock } from '@/components/ui';
-import { ForbiddenPage } from '@/pages/system/ErrorPages';
+import { useAppRole, type AppRole } from '@/features/auth/role';
 
 function FullPageLoading() {
   return (
@@ -29,17 +29,15 @@ export function RequireAuth({ children }: { children?: ReactNode }) {
   return children ?? <Outlet />;
 }
 
-/** Chỉ ADMIN toàn cục. Backend vẫn kiểm tra quyền thật. */
-export function RequireAdmin({ children }: { children?: ReactNode }) {
-  const { data: user } = useCurrentUser();
-  if (user?.globalRole !== 'ADMIN') return <ForbiddenPage />;
-  return children ?? <Outlet />;
-}
-
-/** Cổng người thuê yêu cầu hồ sơ thuê đã liên kết; chưa liên kết -> trang liên kết. */
-export function RequireLinkedTenant({ children }: { children?: ReactNode }) {
-  const { data: user } = useCurrentUser();
-  if (!user?.tenantLinked) return <Navigate to="/tenant/link-account" replace />;
+/**
+ * Chỉ cho vai trò trong `allow` vào nhánh route này; vai trò khác bị đưa về trang chủ của họ
+ * (chủ trọ → workspace, người thuê → /tenant, admin → /admin, người tìm phòng → /).
+ * Chỉ là phân tách giao diện — backend vẫn kiểm tra quyền thật.
+ */
+export function RequireRole({ allow, children }: { allow: AppRole[]; children?: ReactNode }) {
+  const { role, home, isLoading } = useAppRole();
+  if (isLoading) return <FullPageLoading />;
+  if (!allow.includes(role)) return <Navigate to={home} replace />;
   return children ?? <Outlet />;
 }
 

@@ -20,6 +20,7 @@ import {
   useToast,
 } from '@/components/ui';
 import { useCurrentUser, useUpdateProfile } from '@/features/auth/hooks';
+import { useAppRole } from '@/features/auth/role';
 import { profileSchema, type ProfileForm } from '@/features/auth/schemas';
 import { useCancelViewing, useMyViewings } from '@/features/viewings/hooks';
 import { VIEWING_STATUS } from '@/features/viewings/labels';
@@ -35,6 +36,7 @@ import { toApiError } from '@/services/http/ApiError';
 /** USR-01 */
 export function AccountPage() {
   const { data: user } = useCurrentUser();
+  const { role } = useAppRole();
   const update = useUpdateProfile();
   const toast = useToast();
   const {
@@ -98,12 +100,12 @@ export function AccountPage() {
               ]}
             />
           </Section>
-          {!user.tenantLinked && (
-            <Section title="Bạn đang thuê phòng?">
+          {role === 'SEEKER' && (
+            <Section title="Bạn đã thuê phòng?">
               <p className="text-sm muted" style={{ marginBottom: 'var(--space-3)' }}>
-                Liên kết hồ sơ thuê do chủ trọ tạo để xem hợp đồng và hóa đơn.
+                Liên kết hồ sơ thuê do chủ trọ tạo. Sau khi chủ trọ duyệt, tài khoản chuyển sang Cổng người thuê để xem hợp đồng và hóa đơn.
               </p>
-              <ButtonLink to="/tenant/link-account" variant="soft" block>
+              <ButtonLink to="/link-tenant" variant="soft" block>
                 <KeyRound size={16} aria-hidden="true" /> Liên kết hồ sơ thuê
               </ButtonLink>
             </Section>

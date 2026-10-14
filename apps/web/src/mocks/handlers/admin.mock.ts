@@ -36,9 +36,9 @@ const users: AdminUser[] = [
 
 const workspaces: AdminWorkspace[] = [
   { id: 'ws-an-nhien', name: 'Nhà Trọ An Nhiên Group', ownerName: 'Nguyễn Văn Quân', status: 'ACTIVE', buildingCount: 3, roomCount: 28, plan: 'Chuyên Nghiệp', createdAt: '2022-03-01T02:00:00.000Z' },
-  { id: 'ws-sunhouse', name: 'SunHouse Bình Thạnh', ownerName: 'Lê Thị Hồng', status: 'ACTIVE', buildingCount: 1, roomCount: 12, plan: 'Cơ Bản', createdAt: '2024-01-01T02:00:00.000Z' },
-  { id: 'ws-d2', name: 'D2 Residence', ownerName: 'Phạm Minh Đức', status: 'ACTIVE', buildingCount: 2, roomCount: 18, plan: 'Cơ Bản', createdAt: '2024-06-10T02:00:00.000Z' },
-  { id: 'ws-gv', name: 'Nhà trọ Gò Vấp Xanh', ownerName: 'Nguyễn Thanh Bình', status: 'SUSPENDED', buildingCount: 1, roomCount: 9, plan: 'Miễn phí', createdAt: '2025-02-14T02:00:00.000Z' },
+  { id: 'ws-sunhouse', name: 'SunHouse Cầu Giấy', ownerName: 'Lê Thị Hồng', status: 'ACTIVE', buildingCount: 1, roomCount: 12, plan: 'Cơ Bản', createdAt: '2024-01-01T02:00:00.000Z' },
+  { id: 'ws-d2', name: 'TTT Residence', ownerName: 'Phạm Minh Đức', status: 'ACTIVE', buildingCount: 2, roomCount: 18, plan: 'Cơ Bản', createdAt: '2024-06-10T02:00:00.000Z' },
+  { id: 'ws-gv', name: 'Nhà trọ Hoàng Mai Xanh', ownerName: 'Nguyễn Thanh Bình', status: 'SUSPENDED', buildingCount: 1, roomCount: 9, plan: 'Miễn phí', createdAt: '2025-02-14T02:00:00.000Z' },
 ];
 
 if (db.adminListings.length === 0) {

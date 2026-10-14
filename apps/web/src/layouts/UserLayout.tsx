@@ -1,15 +1,22 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { Bell, Building2, CalendarClock, UserRound } from 'lucide-react';
+import { Bell, Building2, CalendarClock, KeyRound, UserRound } from 'lucide-react';
+import { useAppRole } from '@/features/auth/role';
 import { SiteHeader } from './PublicLayout';
 
-const NAV = [
-  { to: '/account', label: 'Hồ sơ', icon: UserRound },
-  { to: '/my-viewings', label: 'Lịch xem phòng', icon: CalendarClock },
-  { to: '/notifications', label: 'Thông báo', icon: Bell },
-  { to: '/workspaces/select', label: 'Workspace của tôi', icon: Building2 },
-];
-
 export function UserLayout() {
+  const { role } = useAppRole();
+  const NAV = [
+    { to: '/account', label: 'Hồ sơ', icon: UserRound },
+    ...(role === 'SEEKER'
+      ? [
+          { to: '/my-viewings', label: 'Lịch xem phòng', icon: CalendarClock },
+          { to: '/link-tenant', label: 'Tôi đã thuê phòng', icon: KeyRound },
+        ]
+      : []),
+    { to: '/notifications', label: 'Thông báo', icon: Bell },
+    ...(role === 'LANDLORD' ? [{ to: '/workspaces/select', label: 'Workspace của tôi', icon: Building2 }] : []),
+  ];
+
   return (
     <>
       <SiteHeader />

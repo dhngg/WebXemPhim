@@ -3,9 +3,9 @@ import { ApiError } from '@/services/http/ApiError';
 
 export const SESSION_EXPIRED_EVENT = 'rp:session-expired';
 
-function notifyIfUnauthorized(error: unknown, queryKey?: readonly unknown[]) {
-  // /auth/me trả null khi chưa đăng nhập nên không tính là "hết phiên".
-  if (queryKey?.[0] === 'auth') return;
+function notifyIfUnauthorized(error: unknown, key?: readonly unknown[]) {
+  // /auth/me trả null khi chưa đăng nhập; đăng nhập sai mật khẩu cũng trả 401 — không tính là "hết phiên".
+  if (key?.[0] === 'auth') return;
   if (error instanceof ApiError && error.isUnauthorized) {
     window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT));
   }
@@ -14,7 +14,9 @@ function notifyIfUnauthorized(error: unknown, queryKey?: readonly unknown[]) {
 export function createQueryClient() {
   return new QueryClient({
     queryCache: new QueryCache({ onError: (error, query) => notifyIfUnauthorized(error, query.queryKey) }),
-    mutationCache: new MutationCache({ onError: (error) => notifyIfUnauthorized(error) }),
+    mutationCache: new MutationCache({
+      onError: (error, _vars, _ctx, mutation) => notifyIfUnauthorized(error, mutation.options.mutationKey),
+    }),
     defaultOptions: {
       queries: {
         staleTime: 30_000,

@@ -1,17 +1,18 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BadgeCheck, BedDouble, FileSignature, Headphones, MapPin, Receipt, Search, ShieldCheck, Wallet, Zap } from 'lucide-react';
-import { Button, ButtonLink, EmptyState, ErrorState, Skeleton } from '@/components/ui';
+import { Button, ButtonLink, EmptyState, ErrorState, Listbox, Skeleton } from '@/components/ui';
 import { useDistricts, useFeaturedRooms, useMarketplaceStats } from '@/features/rooms/hooks';
 import { RoomCard } from '@/features/rooms/components/RoomCard';
 import { PRICE_RANGES, ROOM_TYPE_LABELS } from '@/features/rooms/labels';
 import type { RoomType } from '@/features/rooms/types';
 import { formatNumber, formatPercent } from '@/lib/format';
+import { useAppRole } from '@/features/auth/role';
 
 export function SearchHero() {
   const navigate = useNavigate();
   const { data: districts } = useDistricts();
-  const [district, setDistrict] = useState('Bình Thạnh');
+  const [district, setDistrict] = useState('Cầu Giấy');
   const [price, setPrice] = useState('3-5');
   const [roomType, setRoomType] = useState<RoomType | ''>('');
 
@@ -32,42 +33,48 @@ export function SearchHero() {
         <MapPin size={18} aria-hidden="true" />
         <div style={{ flex: 1 }}>
           <label htmlFor="hero-district">Khu vực / Quận huyện</label>
-          <select id="hero-district" value={district} onChange={(e) => setDistrict(e.target.value)}>
-            <option value="">Tất cả khu vực</option>
-            {(districts ?? [{ name: 'Bình Thạnh', count: 0 }]).map((d) => (
-              <option key={d.name} value={d.name}>
-                {d.name} {d.count ? `(${d.count} phòng)` : ''}
-              </option>
-            ))}
-          </select>
+          <Listbox
+            id="hero-district"
+            value={district}
+            onChange={setDistrict}
+            options={[
+              { value: '', label: 'Tất cả khu vực' },
+              ...(districts ?? [{ name: 'Cầu Giấy', count: 0 }]).map((d) => ({
+                value: d.name,
+                label: d.count ? `${d.name} (${d.count} phòng)` : d.name,
+              })),
+            ]}
+          />
         </div>
       </div>
       <div className="search-hero__field">
         <Wallet size={18} aria-hidden="true" />
         <div style={{ flex: 1 }}>
           <label htmlFor="hero-price">Khoảng giá</label>
-          <select id="hero-price" value={price} onChange={(e) => setPrice(e.target.value)}>
-            <option value="">Mọi mức giá</option>
-            {PRICE_RANGES.map((r) => (
-              <option key={r.key} value={r.key}>
-                {r.label}/tháng
-              </option>
-            ))}
-          </select>
+          <Listbox
+            id="hero-price"
+            value={price}
+            onChange={setPrice}
+            options={[
+              { value: '', label: 'Mọi mức giá' },
+              ...PRICE_RANGES.map((r) => ({ value: r.key, label: `${r.label}/tháng` })),
+            ]}
+          />
         </div>
       </div>
       <div className="search-hero__field">
         <BedDouble size={18} aria-hidden="true" />
         <div style={{ flex: 1 }}>
           <label htmlFor="hero-type">Loại phòng</label>
-          <select id="hero-type" value={roomType} onChange={(e) => setRoomType(e.target.value as RoomType | '')}>
-            <option value="">Tất cả loại phòng</option>
-            {(Object.keys(ROOM_TYPE_LABELS) as RoomType[]).map((t) => (
-              <option key={t} value={t}>
-                {ROOM_TYPE_LABELS[t]}
-              </option>
-            ))}
-          </select>
+          <Listbox
+            id="hero-type"
+            value={roomType}
+            onChange={(v) => setRoomType(v as RoomType | '')}
+            options={[
+              { value: '', label: 'Tất cả loại phòng' },
+              ...(Object.keys(ROOM_TYPE_LABELS) as RoomType[]).map((t) => ({ value: t, label: ROOM_TYPE_LABELS[t] })),
+            ]}
+          />
         </div>
       </div>
       <Button type="submit" variant="dark" size="lg">
@@ -104,6 +111,7 @@ function TrustStats() {
 
 export function HomePage() {
   const featured = useFeaturedRooms();
+  const { role } = useAppRole();
 
   return (
     <>
@@ -114,7 +122,7 @@ export function HomePage() {
           </span>
           <h1 className="hero__title">Tìm phòng trọ phù hợp với cuộc sống của bạn</h1>
           <p className="hero__desc">
-            Hàng ngàn phòng trọ xác thực, hợp đồng minh bạch trực tiếp từ chủ nhà uy tín tại TP.HCM &amp; Hà Nội.
+            Hàng ngàn phòng trọ xác thực, hợp đồng minh bạch trực tiếp từ chủ nhà uy tín tại Hà Nội.
           </p>
           <SearchHero />
           <TrustStats />
@@ -178,21 +186,23 @@ export function HomePage() {
           ))}
         </div>
 
-        <div className="cta-band">
-          <div>
-            <p className="cta-band__eyebrow">Dành riêng cho chủ trọ</p>
-            <h2>Bạn có phòng trọ trống cần tìm khách thuê uy tín?</h2>
-            <p>Đăng tin miễn phí, tiếp cận hàng chục ngàn người thuê trẻ và sử dụng bộ công cụ SaaS quản lý phòng trọ chuyên nghiệp.</p>
+        {role === 'GUEST' && (
+          <div className="cta-band">
+            <div>
+              <p className="cta-band__eyebrow">Dành riêng cho chủ trọ</p>
+              <h2>Bạn có phòng trọ trống cần tìm khách thuê uy tín?</h2>
+              <p>Đăng tin miễn phí, tiếp cận hàng chục ngàn người thuê trẻ và sử dụng bộ công cụ SaaS quản lý phòng trọ chuyên nghiệp.</p>
+            </div>
+            <div className="row" style={{ flexWrap: 'wrap' }}>
+              <ButtonLink to="/workspaces/select" variant="primary" size="lg">
+                Đăng tin phòng ngay
+              </ButtonLink>
+              <ButtonLink to="/about" variant="secondary" size="lg">
+                Tìm hiểu SaaS quản lý
+              </ButtonLink>
+            </div>
           </div>
-          <div className="row" style={{ flexWrap: 'wrap' }}>
-            <ButtonLink to="/workspaces/select" variant="primary" size="lg">
-              Đăng tin phòng ngay
-            </ButtonLink>
-            <ButtonLink to="/about" variant="secondary" size="lg">
-              Tìm hiểu SaaS quản lý
-            </ButtonLink>
-          </div>
-        </div>
+        )}
       </section>
     </>
   );

@@ -4,15 +4,20 @@ import { Menu, ShieldCheck, X } from 'lucide-react';
 import { Brand } from './parts/Brand';
 import { AreaSwitcher } from './parts/AreaSwitcher';
 import { UserMenu } from './parts/UserMenu';
+import { useAppRole } from '@/features/auth/role';
 
-const NAV = [
+const MARKET_NAV = [
   { to: '/rooms', label: 'Khám phá' },
   { to: '/rooms/map', label: 'Bản đồ' },
+];
+const INFO_NAV = [
   { to: '/about', label: 'Giới thiệu' },
   { to: '/help', label: 'Trợ giúp' },
 ];
 
 export function SiteHeader() {
+  const { role } = useAppRole();
+  const NAV = role === 'GUEST' || role === 'SEEKER' ? [...MARKET_NAV, ...INFO_NAV] : INFO_NAV;
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
   useEffect(() => setOpen(false), [pathname]);
@@ -72,12 +77,12 @@ export function SiteFooter() {
             <p className="muted text-xs">Hotline / email hỗ trợ: sẽ cập nhật khi vận hành chính thức.</p>
           </div>
           <div>
-            <h3>Khu vực sôi động TP.HCM</h3>
+            <h3>Khu vực sôi động Hà Nội</h3>
             <ul>
-              <li><Link to="/rooms?district=Bình Thạnh">Phòng trọ Bình Thạnh</Link></li>
-              <li><Link to="/rooms?district=Thủ Đức">Phòng trọ TP. Thủ Đức</Link></li>
-              <li><Link to="/rooms?district=Quận 7">Phòng trọ Quận 7</Link></li>
-              <li><Link to="/rooms?district=Tân Bình">Phòng trọ Tân Bình</Link></li>
+              <li><Link to="/rooms?district=Cầu Giấy">Phòng trọ Cầu Giấy</Link></li>
+              <li><Link to="/rooms?district=Thanh Xuân">Phòng trọ Thanh Xuân</Link></li>
+              <li><Link to="/rooms?district=Đống Đa">Phòng trọ Đống Đa</Link></li>
+              <li><Link to="/rooms?district=Hai Bà Trưng">Phòng trọ Hai Bà Trưng</Link></li>
             </ul>
           </div>
           <div>

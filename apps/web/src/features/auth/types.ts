@@ -27,6 +27,12 @@ export interface RegisterInput {
   acceptTerms: true;
 }
 
+export interface ResetPasswordInput {
+  /** Token một lần trong liên kết email gửi tới người dùng. */
+  token: string;
+  password: string;
+}
+
 export interface UpdateProfileInput {
   fullName: string;
   phone: string;

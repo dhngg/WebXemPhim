@@ -148,7 +148,7 @@ export function BuildingFormPage() {
     resolver: zodResolver(buildingSchema),
     values: b
       ? { name: b.name, address: b.address, ward: b.ward, district: b.district, city: b.city, floors: b.floors, lat: b.lat ?? '', lng: b.lng ?? '', note: b.note ?? '' }
-      : { name: '', address: '', ward: '', district: '', city: 'TP.HCM', floors: 1, lat: '', lng: '', note: '' },
+      : { name: '', address: '', ward: '', district: '', city: 'Hà Nội', floors: 1, lat: '', lng: '', note: '' },
   });
   useUnsavedChangesWarning(isDirty && !isSubmitSuccessful);
 

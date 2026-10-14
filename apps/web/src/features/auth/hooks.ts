@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { authApi } from './api';
-import type { LoginInput, RegisterInput, UpdateProfileInput } from './types';
+import type { LoginInput, RegisterInput, ResetPasswordInput, UpdateProfileInput } from './types';
 
 export const authKeys = { me: ['auth', 'me'] as const };
 
@@ -16,6 +16,7 @@ export function useCurrentUser() {
 export function useLogin() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: ['auth', 'login'],
     mutationFn: (input: LoginInput) => authApi.login(input),
     onSuccess: (user) => {
       qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'auth' && q.queryKey[0] !== 'rooms' });
@@ -53,4 +54,8 @@ export function useUpdateProfile() {
 
 export function useRequestPasswordReset() {
   return useMutation({ mutationFn: (email: string) => authApi.requestPasswordReset(email) });
+}
+
+export function useResetPassword() {
+  return useMutation({ mutationFn: (input: ResetPasswordInput) => authApi.resetPassword(input) });
 }

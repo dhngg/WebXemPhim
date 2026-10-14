@@ -35,10 +35,10 @@ const ROOM_PHOTOS = [
 
 // ---------------------------------------------------------------- Buildings
 const buildings: Building[] = [
-  { id: 'bld-a', workspaceId: WS, name: 'Tòa A', address: '120 Lê Văn Việt', ward: 'Hiệp Phú', district: 'Thủ Đức', city: 'TP.HCM', floors: 4, lat: 10.8466, lng: 106.7766, createdAt: '2022-03-01T02:00:00.000Z' },
-  { id: 'bld-b', workspaceId: WS, name: 'Tòa B', address: '45 Đỗ Xuân Hợp', ward: 'Phước Long B', district: 'Thủ Đức', city: 'TP.HCM', floors: 3, lat: 10.8178, lng: 106.7731, createdAt: '2022-08-01T02:00:00.000Z' },
-  { id: 'bld-c', workspaceId: WS, name: 'Tòa C', address: '88 Tăng Nhơn Phú', ward: 'Phước Long B', district: 'Thủ Đức', city: 'TP.HCM', floors: 4, lat: 10.8307, lng: 106.7779, createdAt: '2023-05-01T02:00:00.000Z' },
-  { id: 'bld-s', workspaceId: WS2, name: 'SunHouse P.25', address: '210 Điện Biên Phủ', ward: 'P.25', district: 'Bình Thạnh', city: 'TP.HCM', floors: 5, lat: 10.8016, lng: 106.7146, createdAt: '2024-01-01T02:00:00.000Z' },
+  { id: 'bld-a', workspaceId: WS, name: 'Tòa A', address: '120 Nguyễn Trãi', ward: 'Thượng Đình', district: 'Thanh Xuân', city: 'Hà Nội', floors: 4, lat: 21.001, lng: 105.815, createdAt: '2022-03-01T02:00:00.000Z' },
+  { id: 'bld-b', workspaceId: WS, name: 'Tòa B', address: '45 Khương Đình', ward: 'Hạ Đình', district: 'Thanh Xuân', city: 'Hà Nội', floors: 3, lat: 20.993, lng: 105.815, createdAt: '2022-08-01T02:00:00.000Z' },
+  { id: 'bld-c', workspaceId: WS, name: 'Tòa C', address: '88 Hoàng Văn Thái', ward: 'Khương Mai', district: 'Thanh Xuân', city: 'Hà Nội', floors: 4, lat: 20.998, lng: 105.826, createdAt: '2023-05-01T02:00:00.000Z' },
+  { id: 'bld-s', workspaceId: WS2, name: 'SunHouse Xuân Thủy', address: '210 Xuân Thủy', ward: 'Dịch Vọng Hậu', district: 'Cầu Giấy', city: 'Hà Nội', floors: 5, lat: 21.0368, lng: 105.7825, createdAt: '2024-01-01T02:00:00.000Z' },
 ];
 
 // ---------------------------------------------------------------- Rooms
@@ -449,22 +449,22 @@ const settings: Record<string, WorkspaceSettings> = {
     id: WS,
     name: 'Nhà Trọ An Nhiên Group',
     status: 'ACTIVE',
-    description: 'Quản lý tập trung Tòa A (Lê Văn Việt), Tòa B (Đỗ Xuân Hợp) và Tòa C (Tăng Nhơn Phú).',
+    description: 'Quản lý tập trung Tòa A (Nguyễn Trãi), Tòa B (Khương Đình) và Tòa C (Hoàng Văn Thái).',
     contactName: 'Nguyễn Văn Quân',
     contactPhone: '0903891223',
-    address: '120 Lê Văn Việt, Hiệp Phú, TP. Thủ Đức',
+    address: '120 Nguyễn Trãi, Thượng Đình, Thanh Xuân, Hà Nội',
     bankAccount: '0071000123456',
     bankName: 'Vietcombank',
     invoiceDueDay: 5,
   },
   [WS2]: {
     id: WS2,
-    name: 'SunHouse Bình Thạnh',
+    name: 'SunHouse Cầu Giấy',
     status: 'ACTIVE',
-    description: 'Căn hộ dịch vụ khu Điện Biên Phủ.',
+    description: 'Căn hộ dịch vụ khu Xuân Thủy, gần ĐH Quốc Gia Hà Nội.',
     contactName: 'Lê Thị Hồng',
     contactPhone: '0971556718',
-    address: '210 Điện Biên Phủ, P.25, Bình Thạnh',
+    address: '210 Xuân Thủy, Dịch Vọng Hậu, Cầu Giấy, Hà Nội',
     bankAccount: '',
     bankName: '',
     invoiceDueDay: 10,
@@ -512,7 +512,7 @@ const auditLogs: AuditLog[] = [
   { id: 'al-2', at: iso(addDays(TODAY, -1), 15), actor: 'quan@demo.vn', action: 'Xác nhận thanh toán', target: 'HD-P.205', category: 'BILLING', ip: '113.161.x.x' },
   { id: 'al-3', at: iso(addDays(TODAY, -1), 11), actor: 'admin@demo.vn', action: 'Gỡ tin đăng vi phạm', target: 'Tin #r-7', category: 'LISTING', ip: '14.241.x.x' },
   { id: 'al-4', at: iso(addDays(TODAY, -2), 10), actor: 'admin@demo.vn', action: 'Khóa tài khoản', target: 'spam.user@mail.vn', category: 'USER', ip: '14.241.x.x' },
-  { id: 'al-5', at: iso(addDays(TODAY, -3), 9), actor: 'hong@demo.vn', action: 'Tạo workspace', target: 'SunHouse Bình Thạnh', category: 'WORKSPACE', ip: '27.72.x.x' },
+  { id: 'al-5', at: iso(addDays(TODAY, -3), 9), actor: 'hong@demo.vn', action: 'Tạo workspace', target: 'SunHouse Cầu Giấy', category: 'WORKSPACE', ip: '27.72.x.x' },
   { id: 'al-6', at: iso(addDays(TODAY, -4), 14), actor: 'nam@demo.vn', action: 'Gửi yêu cầu liên kết hồ sơ thuê', target: 'HĐ-1024', category: 'USER', ip: '171.250.x.x' },
   { id: 'al-7', at: iso(addDays(TODAY, -5), 16), actor: 'quan@demo.vn', action: 'Lập hóa đơn tháng', target: `Kỳ ${CURRENT_PERIOD}`, category: 'BILLING', ip: '113.161.x.x' },
   { id: 'al-8', at: iso(addDays(TODAY, -6), 13), actor: 'unknown', action: 'Đăng nhập thất bại (5 lần)', target: 'minh@demo.vn', category: 'AUTH', ip: '103.21.x.x' },

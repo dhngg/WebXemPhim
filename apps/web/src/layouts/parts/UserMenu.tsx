@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Bell } from 'lucide-react';
-import { useCurrentUser, useLogout } from '@/features/auth/hooks';
+import { useLogout } from '@/features/auth/hooks';
+import { useAppRole, type AppRole } from '@/features/auth/role';
 import { ButtonLink } from '@/components/ui';
 
 export function initials(name: string) {
@@ -9,8 +10,16 @@ export function initials(name: string) {
   return ((parts.at(-2)?.[0] ?? '') + (parts.at(-1)?.[0] ?? '')).toUpperCase();
 }
 
+const ROLE_SUBTITLE: Record<AppRole, string> = {
+  GUEST: '',
+  SEEKER: 'Người tìm phòng',
+  TENANT: 'Người thuê',
+  LANDLORD: 'Chủ trọ',
+  ADMIN: 'Quản trị viên',
+};
+
 export function UserMenu({ subtitle }: { subtitle?: string }) {
-  const { data: user } = useCurrentUser();
+  const { user, role, home } = useAppRole();
   const logout = useLogout();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -61,25 +70,44 @@ export function UserMenu({ subtitle }: { subtitle?: string }) {
           </span>
           <span className="user-menu__name">
             {user.fullName}
-            <small>{subtitle ?? (user.globalRole === 'ADMIN' ? 'Quản trị viên' : user.email)}</small>
+            <small>{subtitle ?? ROLE_SUBTITLE[role]}</small>
           </span>
         </button>
         {open && (
           <div className="user-menu__panel" role="menu">
-            <Link role="menuitem" to="/account" onClick={() => setOpen(false)}>
-              Hồ sơ của tôi
-            </Link>
-            <Link role="menuitem" to="/my-viewings" onClick={() => setOpen(false)}>
-              Lịch xem phòng
-            </Link>
-            <Link role="menuitem" to="/workspaces/select" onClick={() => setOpen(false)}>
-              Chọn workspace
-            </Link>
-            {user.tenantLinked && (
+            {role === 'SEEKER' && (
+              <>
+                <Link role="menuitem" to="/my-viewings" onClick={() => setOpen(false)}>
+                  Lịch xem phòng
+                </Link>
+                <Link role="menuitem" to="/link-tenant" onClick={() => setOpen(false)}>
+                  Tôi đã thuê phòng
+                </Link>
+              </>
+            )}
+            {role === 'LANDLORD' && (
+              <>
+                <Link role="menuitem" to={home} onClick={() => setOpen(false)}>
+                  Trang quản lý
+                </Link>
+                <Link role="menuitem" to="/workspaces/select" onClick={() => setOpen(false)}>
+                  Chọn workspace
+                </Link>
+              </>
+            )}
+            {role === 'TENANT' && (
               <Link role="menuitem" to="/tenant" onClick={() => setOpen(false)}>
                 Cổng người thuê
               </Link>
             )}
+            {role === 'ADMIN' && (
+              <Link role="menuitem" to="/admin" onClick={() => setOpen(false)}>
+                Trang quản trị
+              </Link>
+            )}
+            <Link role="menuitem" to="/account" onClick={() => setOpen(false)}>
+              Hồ sơ của tôi
+            </Link>
             <button
               role="menuitem"
               onClick={() =>

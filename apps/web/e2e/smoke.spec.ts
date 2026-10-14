@@ -48,7 +48,8 @@ test('F2/F4 — Chủ trọ: mọi màn hình workspace render không lỗi', as
   test.setTimeout(180_000);
   const errors = trackErrors(page);
   await login(page, 'quan@demo.vn');
-  await expect(page).toHaveURL('/');
+  // Chủ trọ đăng nhập vào thẳng khu quản lý
+  await expect(page).toHaveURL('/w/ws-an-nhien/dashboard');
   const ws = '/w/ws-an-nhien';
   const routes = [
     'dashboard', 'settings', 'members', 'buildings', 'buildings/new', 'buildings/bld-a', 'buildings/bld-a/edit',
@@ -122,7 +123,7 @@ test('Người dùng & trạng thái lỗi mock', async ({ page }) => {
   test.setTimeout(90_000);
   const errors = trackErrors(page);
   await login(page, 'minh@demo.vn');
-  for (const r of ['/account', '/my-viewings', '/notifications', '/workspaces/select', '/rooms/map', '/about', '/help', '/khong-ton-tai']) {
+  for (const r of ['/account', '/my-viewings', '/notifications', '/link-tenant', '/rooms/map', '/about', '/help', '/khong-ton-tai']) {
     await page.goto(r);
     await expect(page.locator('h1').first()).toBeVisible();
   }
@@ -130,7 +131,89 @@ test('Người dùng & trạng thái lỗi mock', async ({ page }) => {
   await expect(page.getByText('Lỗi máy chủ (mock 500).')).toBeVisible();
   await page.goto('/rooms?mock=empty');
   await expect(page.getByText('Không tìm thấy phòng phù hợp')).toBeVisible();
-  await page.goto('/w/ws-an-nhien/dashboard');
-  await expect(page.getByText('403')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('Tách vai trò: mỗi vai trò chỉ thấy và vào được khu vực của mình', async ({ page }) => {
+  test.setTimeout(90_000);
+  const errors = trackErrors(page);
+  const areaTabs = page.locator('.area-switcher:visible').first().getByRole('link');
+  // Mobile: thanh khu vực nằm trong menu (header công khai) hoặc bị ẩn (khung quản lý)
+  const expectAreas = async (labels: string[]) => {
+    if (test.info().project.name !== 'desktop') return;
+    await expect(areaTabs).toHaveText(labels);
+  };
+
+  // Người tìm phòng: chỉ khu Tìm phòng; vào khu chủ trọ / người thuê bị đưa về trang chủ
+  await login(page, 'minh@demo.vn');
+  await expect(page).toHaveURL('/');
+  await expectAreas(['Tìm phòng trọ']);
+  for (const r of ['/w/ws-an-nhien/dashboard', '/workspaces/select', '/tenant', '/admin']) {
+    await page.goto(r);
+    await expect(page).toHaveURL('/');
+  }
+  await page.evaluate(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+
+  // Chủ trọ: chỉ khu Chủ trọ; trang tìm phòng & cổng người thuê đưa về dashboard
+  await login(page, 'quan@demo.vn');
+  await expectAreas(['Chủ trọ(Landlord)']);
+  for (const r of ['/', '/rooms', '/my-viewings', '/tenant']) {
+    await page.goto(r);
+    await expect(page).toHaveURL(/\/w\/ws-an-nhien\/dashboard/);
+  }
+  await page.evaluate(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+
+  // Người thuê: chỉ Cổng người thuê
+  await login(page, 'nam@demo.vn');
+  await expectAreas(['Cổng người thuê(Tenant)']);
+  for (const r of ['/', '/rooms', '/w/ws-an-nhien/dashboard', '/link-tenant']) {
+    await page.goto(r);
+    await expect(page).toHaveURL('/tenant');
+  }
+  expect(errors).toEqual([]);
+});
+
+test('Quên mật khẩu → đặt lại → đăng nhập bằng mật khẩu mới', async ({ page }) => {
+  const errors = trackErrors(page);
+  // Liên kết sai → báo không hợp lệ
+  await page.goto('/reset-password?token=sai');
+  await page.getByLabel(/^Mật khẩu mới/).fill('MatKhau2026');
+  await page.getByLabel(/Nhập lại mật khẩu mới/).fill('MatKhau2026');
+  await page.getByRole('button', { name: 'Đổi mật khẩu' }).click();
+  await expect(page.getByText('Liên kết không hợp lệ hoặc đã hết hạn')).toBeVisible();
+
+  await page.getByRole('link', { name: 'Gửi lại liên kết đặt lại mật khẩu' }).click();
+  await expect(page).toHaveURL('/forgot-password');
+  await page.getByLabel('Email').fill('minh@demo.vn');
+  await page.getByRole('button', { name: 'Gửi hướng dẫn' }).click();
+  await expect(page.getByText('Kiểm tra email của bạn')).toBeVisible();
+  await page.getByRole('link', { name: /Mở liên kết đặt lại mật khẩu/ }).click();
+  await expect(page).toHaveURL(/\/reset-password\?token=/);
+
+  // Kiểm tra dữ liệu nhập
+  await page.getByLabel(/^Mật khẩu mới/).fill('MatKhau2026');
+  await page.getByLabel(/Nhập lại mật khẩu mới/).fill('KhacNhau1');
+  await page.getByRole('button', { name: 'Đổi mật khẩu' }).click();
+  await expect(page.getByText('Mật khẩu xác nhận không khớp')).toBeVisible();
+
+  await page.getByLabel(/Nhập lại mật khẩu mới/).fill('MatKhau2026');
+  await page.getByRole('button', { name: 'Đổi mật khẩu' }).click();
+  await expect(page.getByText('Đã đổi mật khẩu')).toBeVisible();
+
+  // Điều hướng trong app (không tải lại trang) để mock còn nhớ mật khẩu mới
+  await page.getByRole('link', { name: 'Đăng nhập', exact: true }).last().click();
+  await page.getByLabel(/Email hoặc số điện thoại/).fill('minh@demo.vn');
+  await page.getByLabel(/^Mật khẩu/).fill('demo1234');
+  await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
+  await expect(page.getByText('Email/số điện thoại hoặc mật khẩu không đúng.')).toBeVisible();
+  await page.getByLabel(/^Mật khẩu/).fill('MatKhau2026');
+  await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
+  await expect(page).toHaveURL('/');
   expect(errors).toEqual([]);
 });

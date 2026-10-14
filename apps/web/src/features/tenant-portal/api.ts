@@ -44,8 +44,10 @@ export const tenantPortalApi: TenantPortalApi = env.useMockApi ? tenantPortalMoc
 const K = ['tenant-portal'] as const;
 
 export const useTenantOverview = () => useQuery({ queryKey: [...K, 'overview'], queryFn: () => tenantPortalApi.overview() });
-export const useTenantContracts = () => useQuery({ queryKey: [...K, 'contracts'], queryFn: () => tenantPortalApi.contracts() });
-export const useTenantInvoices = () => useQuery({ queryKey: [...K, 'invoices'], queryFn: () => tenantPortalApi.invoices() });
+export const useTenantContracts = (enabled = true) =>
+  useQuery({ queryKey: [...K, 'contracts'], queryFn: () => tenantPortalApi.contracts(), enabled });
+export const useTenantInvoices = (enabled = true) =>
+  useQuery({ queryKey: [...K, 'invoices'], queryFn: () => tenantPortalApi.invoices(), enabled });
 export const useTenantInvoice = (id: string | undefined) =>
   useQuery({ queryKey: [...K, 'invoice', id], queryFn: () => tenantPortalApi.invoice(id!), enabled: Boolean(id) });
 export const useTenantMaintenance = () => useQuery({ queryKey: [...K, 'maintenance'], queryFn: () => tenantPortalApi.maintenance() });

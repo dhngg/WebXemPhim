@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -35,7 +35,9 @@ import {
   useTenantMaintenance,
   useTenantOverview,
 } from '@/features/tenant-portal/api';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from '@/features/auth/hooks';
+import { useAppRole } from '@/features/auth/role';
 import { vnPhoneSchema } from '@/features/auth/schemas';
 import { CONTRACT_STATUS, WATER_MODE } from '@/features/leasing/labels';
 import { INVOICE_STATUS, PAYMENT_METHOD, PAYMENT_STATUS } from '@/features/billing/labels';
@@ -508,7 +510,9 @@ type LinkForm = z.input<typeof linkSchema>;
 
 /** TPT-07 */
 export function LinkAccountPage() {
-  const { data: user } = useCurrentUser();
+  const { data: user, refetch: refetchUser } = useCurrentUser();
+  const { role } = useAppRole();
+  const qc = useQueryClient();
   const requests = useLinkRequests();
   const link = useRequestLink();
   const toast = useToast();
@@ -516,13 +520,24 @@ export function LinkAccountPage() {
   const form = useForm<LinkForm>({ resolver: zodResolver(linkSchema), defaultValues: { inviteCode: '', contractCode: '', phone: user?.phone ?? '', verificationCode: '' } });
   const pending = useMemo(() => requests.data?.some((r) => r.status === 'PENDING'), [requests.data]);
 
+  // Đang chờ chủ trọ duyệt: kiểm tra lại định kỳ — duyệt xong tài khoản thành người thuê
+  // và route guard tự chuyển sang Cổng người thuê.
+  useEffect(() => {
+    if (!pending) return;
+    const t = window.setInterval(() => {
+      void refetchUser();
+      void qc.invalidateQueries({ queryKey: ['tenant-portal'] });
+    }, 10_000);
+    return () => window.clearInterval(t);
+  }, [pending, refetchUser, qc]);
+
   return (
     <>
       <PageHeader
         title="Liên kết hồ sơ thuê"
         description="Kết nối tài khoản của bạn với hồ sơ người thuê do chủ trọ tạo để xem hợp đồng, hóa đơn và gửi thanh toán."
       />
-      {user?.tenantLinked && (
+      {role === 'TENANT' && (
         <div className="alert alert--success" style={{ marginBottom: 'var(--space-4)' }}>
           <CheckCircle2 size={18} aria-hidden="true" /> Tài khoản đã được liên kết. <Link to="/tenant">Vào Cổng người thuê →</Link>
         </div>

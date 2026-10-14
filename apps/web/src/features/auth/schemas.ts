@@ -7,6 +7,13 @@ export const vnPhoneSchema = z
   .transform((v) => v.replace(/\s/g, ''))
   .pipe(z.string().regex(/^0\d{9}$/, 'Số điện thoại gồm 10 chữ số, bắt đầu bằng 0'));
 
+/** Quy tắc mật khẩu dùng chung cho đăng ký & đặt lại mật khẩu. */
+const passwordSchema = z
+  .string()
+  .min(8, 'Mật khẩu tối thiểu 8 ký tự')
+  .regex(/[A-Za-z]/, 'Mật khẩu cần có chữ cái')
+  .regex(/\d/, 'Mật khẩu cần có chữ số');
+
 export const loginSchema = z.object({
   identifier: z.string().trim().min(1, 'Vui lòng nhập email hoặc số điện thoại'),
   password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
@@ -17,11 +24,7 @@ export const registerSchema = z
     fullName: z.string().trim().min(2, 'Họ tên tối thiểu 2 ký tự').max(80, 'Họ tên quá dài'),
     email: z.string().trim().toLowerCase().email('Email không hợp lệ'),
     phone: vnPhoneSchema,
-    password: z
-      .string()
-      .min(8, 'Mật khẩu tối thiểu 8 ký tự')
-      .regex(/[A-Za-z]/, 'Mật khẩu cần có chữ cái')
-      .regex(/\d/, 'Mật khẩu cần có chữ số'),
+    password: passwordSchema,
     confirmPassword: z.string(),
     acceptTerms: z.literal(true, { errorMap: () => ({ message: 'Bạn cần đồng ý điều khoản sử dụng' }) }),
   })
@@ -39,6 +42,17 @@ export const forgotPasswordSchema = z.object({
   email: z.string().trim().email('Email không hợp lệ'),
 });
 
+export const resetPasswordSchema = z
+  .object({
+    password: passwordSchema,
+    confirmPassword: z.string().min(1, 'Vui lòng nhập lại mật khẩu'),
+  })
+  .refine((v) => v.password === v.confirmPassword, {
+    path: ['confirmPassword'],
+    message: 'Mật khẩu xác nhận không khớp',
+  });
+
 export type LoginForm = z.infer<typeof loginSchema>;
 export type RegisterForm = z.input<typeof registerSchema>;
 export type ProfileForm = z.input<typeof profileSchema>;
+export type ResetPasswordForm = z.input<typeof resetPasswordSchema>;

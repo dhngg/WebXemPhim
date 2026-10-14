@@ -53,10 +53,10 @@ export function RoomsPage() {
         </span>
         <button
           className="chip"
-          aria-pressed={s.district === 'Bình Thạnh' && s.q === 'HUTECH'}
-          onClick={() => set({ district: 'Bình Thạnh', q: s.q === 'HUTECH' ? '' : 'HUTECH' })}
+          aria-pressed={s.district === 'Cầu Giấy' && s.q === 'Quốc Gia'}
+          onClick={() => set({ district: 'Cầu Giấy', q: s.q === 'Quốc Gia' ? '' : 'Quốc Gia' })}
         >
-          Gần ĐH Quốc Gia / HUTECH
+          Gần ĐH Quốc Gia Hà Nội
         </button>
         {QUICK_FILTERS.map((f) => {
           const pressed = f.amenity ? amenities.includes(f.amenity) : s.roomType === f.roomType;

@@ -37,7 +37,7 @@ export const mockUsers: MockUserRecord[] = [
       anNhien,
       {
         workspaceId: 'ws-sunhouse',
-        name: 'SunHouse Bình Thạnh',
+        name: 'SunHouse Cầu Giấy',
         status: 'ACTIVE',
         role: 'MANAGER',
         buildingCount: 1,
