@@ -1,67 +1,36 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
-import { vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { App } from './app';
-import { getHealth } from '../lib/health-api';
+import { createAppRouter, routes } from './router';
 
-vi.mock('../lib/health-api', () => ({ getHealth: vi.fn() }));
-const mockedHealth = vi.mocked(getHealth);
+type RouteLike = { path?: string; children?: RouteLike[] };
 
-function renderApp(path = '/') {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
-  return render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[path]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+function collectPaths(list: RouteLike[], acc: string[] = []): string[] {
+  for (const route of list) {
+    if (route.path) acc.push(route.path);
+    if (route.children) collectPaths(route.children, acc);
+  }
+  return acc;
 }
 
-describe('foundation app', () => {
-  it('shows the home placeholder and live health result', async () => {
-    mockedHealth.mockResolvedValue({
-      status: 'ok',
-      service: 'rental-api',
-      timestamp: '2026-10-13T00:00:00.000Z',
-    });
-    renderApp();
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      'Không gian cho một khởi đầu mới.',
-    );
-    expect(await screen.findByText('API đang hoạt động')).toBeInTheDocument();
-    expect(screen.getAllByText('Sắp phát triển')).toHaveLength(3);
+describe('app shell', () => {
+  it('exports the root component and builds the router without throwing', () => {
+    expect(typeof App).toBe('function');
+    expect(createAppRouter()).toBeTruthy();
   });
 
-  it('exposes a loading state accessibly', () => {
-    mockedHealth.mockReturnValue(new Promise(() => {}));
-    renderApp();
-    expect(screen.getByRole('status')).toHaveTextContent('Đang kiểm tra kết nối API');
-  });
-
-  it('allows recovery from a network failure', async () => {
-    mockedHealth.mockRejectedValueOnce(new Error('network unavailable')).mockResolvedValueOnce({
-      status: 'ok',
-      service: 'rental-api',
-      timestamp: '2026-10-13T00:00:00.000Z',
-    });
-    renderApp();
-    expect(await screen.findByRole('alert')).toHaveTextContent('Chưa kết nối được API');
-    await userEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
-    expect(await screen.findByText('API đang hoạt động')).toBeInTheDocument();
-  });
-
-  it('renders unknown routes and navigates back home', async () => {
-    mockedHealth.mockResolvedValue({
-      status: 'ok',
-      service: 'rental-api',
-      timestamp: '2026-10-13T00:00:00.000Z',
-    });
-    renderApp('/unknown-route');
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Trang này chưa có ở đây.');
-    await userEvent.click(screen.getByRole('link', { name: /Về trang chủ/ }));
-    expect(await screen.findByText('API đang hoạt động')).toBeInTheDocument();
+  it('keeps the public, auth, workspace, tenant and admin route trees', () => {
+    const paths = collectPaths(routes as RouteLike[]);
+    for (const expected of [
+      'rooms',
+      'login',
+      'register',
+      'forgot-password',
+      'reset-password',
+      'w/:workspaceId',
+      'tenant',
+      'admin',
+    ]) {
+      expect(paths).toContain(expected);
+    }
   });
 });

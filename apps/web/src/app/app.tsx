@@ -1,15 +1,18 @@
-import { Route, Routes } from 'react-router-dom';
-import { AppShell } from '../components/app-shell';
-import { HomePage } from './home-page';
-import { NotFoundPage } from './not-found-page';
+import { useState } from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { RouterProvider } from 'react-router-dom';
+import { ToastProvider } from '@/components/ui';
+import { createQueryClient } from './queryClient';
+import { createAppRouter } from './router';
 
 export function App() {
+  const [queryClient] = useState(createQueryClient);
+  const [router] = useState(createAppRouter);
   return (
-    <Routes>
-      <Route element={<AppShell />}>
-        <Route index element={<HomePage />} />
-        <Route path="*" element={<NotFoundPage />} />
-      </Route>
-    </Routes>
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
+    </QueryClientProvider>
   );
 }

@@ -1,19 +1,14 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
-import { App } from './app/app';
-import { AppProviders } from './app/providers';
-import './styles/tokens.css';
-import './styles/global.css';
+import '@/styles/tokens.css';
+import '@/styles/base.css';
+import '@/styles/components.css';
+import '@/styles/layout.css';
+import '@/styles/pages.css';
+import { App } from '@/app/app';
 
-const root = document.getElementById('root');
-if (!root) throw new Error('Application root is missing');
-createRoot(root).render(
+createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AppProviders>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </AppProviders>
+    <App />
   </StrictMode>,
 );
