@@ -9,6 +9,8 @@ import type {
 import { ApplicationException } from '../../../common/errors/application-exception';
 import {
   WorkspaceArchivedRepositoryError,
+  WorkspaceApplicationRequiredRepositoryError,
+  WorkspaceActiveOwnershipLimitRepositoryError,
   WorkspaceMemberAlreadyExistsRepositoryError,
   WorkspaceMemberNotFoundRepositoryError,
   WorkspaceNotFoundRepositoryError,
@@ -31,6 +33,10 @@ export class WorkspaceService {
       if (error instanceof WorkspaceUserUnavailableRepositoryError) {
         throw new ApplicationException('ACCOUNT_DISABLED');
       }
+      if (error instanceof WorkspaceApplicationRequiredRepositoryError)
+        throw new ApplicationException('LANDLORD_APPLICATION_REQUIRED');
+      if (error instanceof WorkspaceActiveOwnershipLimitRepositoryError)
+        throw new ApplicationException('WORKSPACE_ACTIVE_LIMIT_REACHED');
       throw error;
     }
   }
@@ -111,6 +117,9 @@ export class WorkspaceService {
       if (error instanceof WorkspaceNotFoundRepositoryError) {
         throw new ApplicationException('WORKSPACE_NOT_FOUND');
       }
+      if (error instanceof WorkspaceActiveOwnershipLimitRepositoryError) {
+        throw new ApplicationException('WORKSPACE_ACTIVE_LIMIT_REACHED');
+      }
       if (error instanceof WorkspaceArchivedRepositoryError) {
         throw new ApplicationException('WORKSPACE_ARCHIVED');
       }
@@ -132,6 +141,9 @@ export class WorkspaceService {
     } catch (error) {
       if (error instanceof WorkspaceNotFoundRepositoryError) {
         throw new ApplicationException('WORKSPACE_NOT_FOUND');
+      }
+      if (error instanceof WorkspaceActiveOwnershipLimitRepositoryError) {
+        throw new ApplicationException('WORKSPACE_ACTIVE_LIMIT_REACHED');
       }
       throw error;
     }

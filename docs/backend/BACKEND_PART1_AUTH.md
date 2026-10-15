@@ -35,7 +35,7 @@ P01 không tạo workspace khi đăng ký, không triển khai workspace members
 - JWT phải kiểm tra issuer, audience, expiry, type và algorithm allowlist.
 - Deployment chọn mô hình frontend/API cùng site; hostname production cụ thể chưa được chốt.
 - Refresh cookie production dùng prefix __Host-, Path=/, Secure, HttpOnly, SameSite=Lax và không đặt Domain.
-- P01 có logout-all. Email verification và forgot/reset password được hoãn.
+- P01 có logout-all. Email verification được hoãn. Forgot/reset password được bổ sung sau P01, xem API_CONTRACT.md và CURRENT_STATUS.md.
 
 ## 3. Ranh giới P01 và P02
 

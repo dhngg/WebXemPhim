@@ -57,7 +57,7 @@ P01–P13 không tự chuyển sang triển khai khi chưa có task được ch�
 
 **Frontend cần làm:** giao diện quản lý tòa nhà/phòng và tải ảnh.
 
-**Trạng thái hiện tại:** **NOT STARTED**. Phụ thuộc Sprint 1.
+**Trạng thái hiện tại:** **IN PROGRESS** sau P03-06. Building, Room, Amenities và Room Images backend đã có schema/API nhưng migration P03 chưa deploy; storage upload provider và frontend chưa triển khai.
 
 ### Sprint 3 — Tìm phòng và đặt lịch xem
 
@@ -69,7 +69,7 @@ P01–P13 không tự chuyển sang triển khai khi chưa có task được ch�
 
 **Frontend cần làm:** trang tìm kiếm, bản đồ, chi tiết phòng và đặt lịch xem.
 
-**Trạng thái hiện tại:** **NOT STARTED**. Smart Rental Assistant có trạng thái **PRODUCT FEATURE PROPOSAL — CHƯA TRIỂN KHAI; CHƯA CHỐT TOÀN BỘ CHI TIẾT**. Phụ thuộc dữ liệu tòa nhà/phòng và workspace.
+**Trạng thái hiện tại:** **IN PROGRESS** sau P04-02. Đã có bật/tắt listing, public list/detail, lọc cơ bản và Viewing Requests cho khách/OWNER/MANAGER; migration chưa deploy. Bản đồ/routing, frontend và Smart Rental Assistant chưa triển khai. Smart Rental Assistant vẫn là **PRODUCT FEATURE PROPOSAL — CHƯA CHỐT TOÀN BỘ CHI TIẾT**.
 
 Chi tiết đề xuất tại [SMART_RENTAL_ASSISTANT](marketplace/SMART_RENTAL_ASSISTANT.md). Việc bổ sung này không thay đổi thứ tự P00–P13 hoặc số lượng nhóm chức năng V1.0 đã ghi nhận.
 
@@ -83,7 +83,7 @@ Chi tiết đề xuất tại [SMART_RENTAL_ASSISTANT](marketplace/SMART_RENTAL_
 
 **Frontend cần làm:** giao diện quản lý người thuê, phương tiện và hợp đồng.
 
-**Trạng thái hiện tại:** **NOT STARTED**.
+**Trạng thái hiện tại:** **IN PROGRESS** sau P06-02. Tenant, liên kết tài khoản, Contracts và Vehicles backend đã có; migration Contracts/Vehicles đã deploy Neon; Contracts smoke PostgreSQL PASS. Contract members và frontend chưa triển khai.
 
 ### Sprint 5 — Chỉ số, đơn giá và hóa đơn
 
@@ -95,7 +95,7 @@ Chi tiết đề xuất tại [SMART_RENTAL_ASSISTANT](marketplace/SMART_RENTAL_
 
 **Frontend cần làm:** giao diện đơn giá, chỉ số và hóa đơn.
 
-**Trạng thái hiện tại:** **NOT STARTED**.
+**Trạng thái hiện tại:** **IN PROGRESS** sau P07-01. Building Rates backend và migration review-only đã có; meter readings, invoices, adjustments và frontend chưa triển khai.
 
 ### Sprint 6 — Thanh toán và cổng người thuê
 
@@ -135,22 +135,22 @@ Chi tiết đề xuất tại [SMART_RENTAL_ASSISTANT](marketplace/SMART_RENTAL_
 
 ## Kế hoạch kỹ thuật — P00 đến P13
 
-| PART | Sprint | Nội dung kỹ thuật (Backend / Frontend)                                                                | Phụ thuộc | Nghiệm thu | Trạng thái                      |
-| ---- | ------ | ----------------------------------------------------------------------------------------------------- | --------- | ---------- | ------------------------------- |
-| P00  | S0     | Monorepo, API health, Prisma/Neon, CI / app shell và trạng thái cơ bản                                | —         | G0         | COMPLETED                       |
-| P01  | S1     | Users, Auth, session, register/login/refresh/logout / login, register, auth state, route guard        | P00       | G1         | IN PROGRESS (P01-07 smoke PASS) |
-| P02  | S1     | Workspace, membership, RBAC, guard / chọn workspace, quản lý thành viên                               | P01       | G2         | IN PROGRESS (P02-06 transfer)   |
-| P03  | S2     | Building, room, amenity, image/media / quản lý tòa nhà, phòng, tải ảnh                                | P02       | G3         | NOT STARTED                     |
-| P04  | S3     | Listing, search/filter/map cơ bản; đề xuất smart recommendations/routing / tìm kiếm, bản đồ, chi tiết | P03       | G4         | NOT STARTED                     |
-| P05  | S3     | Viewing request và vòng đời xử lý / đặt lịch và quản lý yêu cầu xem                                   | P04, P02  | G5         | NOT STARTED                     |
-| P06  | S4     | Tenant, liên kết user, vehicle / giao diện người thuê và phương tiện                                  | P01, P02  | G6         | NOT STARTED                     |
-| P07  | S4     | Contract, member, occupancy / giao diện hợp đồng                                                      | P03, P06  | G7         | NOT STARTED                     |
-| P08  | S5     | Đơn giá theo phiên bản, chỉ số điện nước / giao diện đơn giá và chỉ số                                | P07       | G8         | NOT STARTED                     |
-| P09  | S5     | Invoice, invoice item, adjustment / giao diện hóa đơn                                                 | P08       | G9         | NOT STARTED                     |
-| P10  | S6     | Payment, thanh toán một phần, deposit / giao diện thanh toán                                          | P09       | G10        | NOT STARTED                     |
-| P11  | S6     | Tenant portal API, notification / cổng người thuê                                                     | P06–P10   | G11        | NOT STARTED                     |
-| P12  | S7     | Maintenance, analytics, admin, audit log / vận hành, báo cáo, quản trị                                | P02–P11   | G12        | NOT STARTED                     |
-| P13  | S8     | Security, performance, deploy, backup/recovery / accessibility, UX polish, E2E                        | P01–P12   | G13        | NOT STARTED                     |
+| PART | Sprint | Nội dung kỹ thuật (Backend / Frontend)                                                                | Phụ thuộc | Nghiệm thu | Trạng thái                        |
+| ---- | ------ | ----------------------------------------------------------------------------------------------------- | --------- | ---------- | --------------------------------- |
+| P00  | S0     | Monorepo, API health, Prisma/Neon, CI / app shell và trạng thái cơ bản                                | —         | G0         | COMPLETED                         |
+| P01  | S1     | Users, Auth, session, register/login/refresh/logout / login, register, auth state, route guard        | P00       | G1         | IN PROGRESS (P01-07 smoke PASS)   |
+| P02  | S1     | Workspace, membership, RBAC, guard / chọn workspace, quản lý thành viên                               | P01       | G2         | IN PROGRESS (P02-06 transfer)     |
+| P03  | S2     | Building, room, amenity, image/media / quản lý tòa nhà, phòng, tải ảnh                                | P02       | G3         | IN PROGRESS (P03-06 room images)  |
+| P04  | S3     | Listing, search/filter/map cơ bản; đề xuất smart recommendations/routing / tìm kiếm, bản đồ, chi tiết | P03       | G4         | IN PROGRESS (P04-02 foundation)   |
+| P05  | S3     | Viewing request và vòng đời xử lý / đặt lịch và quản lý yêu cầu xem                                   | P04, P02  | G5         | IN PROGRESS (backend implemented) |
+| P06  | S4     | Tenant, liên kết user, vehicle / giao diện người thuê và phương tiện                                  | P01, P02  | G6         | IN PROGRESS (vehicle management)  |
+| P07  | S4     | Contract, member, occupancy / giao diện hợp đồng                                                      | P03, P06  | G7         | IN PROGRESS (contract foundation) |
+| P08  | S5     | Đơn giá theo phiên bản, chỉ số điện nước / giao diện đơn giá và chỉ số                                | P07       | G8         | IN PROGRESS (building rates)      |
+| P09  | S5     | Invoice, invoice item, adjustment / giao diện hóa đơn                                                 | P08       | G9         | NOT STARTED                       |
+| P10  | S6     | Payment, thanh toán một phần, deposit / giao diện thanh toán                                          | P09       | G10        | NOT STARTED                       |
+| P11  | S6     | Tenant portal API, notification / cổng người thuê                                                     | P06–P10   | G11        | NOT STARTED                       |
+| P12  | S7     | Maintenance, analytics, admin, audit log / vận hành, báo cáo, quản trị                                | P02–P11   | G12        | NOT STARTED                       |
+| P13  | S8     | Security, performance, deploy, backup/recovery / accessibility, UX polish, E2E                        | P01–P12   | G13        | NOT STARTED                       |
 
 Ghi chú P01: P01-01 migration đã áp dụng trên Neon development trong P01-07; chỉ có users và auth_sessions. Auth flow chính đã smoke PASS, nhưng chưa đánh dấu P01/G1 hoàn thành.
 

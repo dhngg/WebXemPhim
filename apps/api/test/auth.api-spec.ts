@@ -13,6 +13,7 @@ import {
 } from '../src/modules/auth/repositories/auth.repository';
 import { AuthSecurityModule } from '../src/modules/auth/security/auth-security.module';
 import { PasswordHasher } from '../src/modules/auth/security/password-hasher';
+import { PasswordResetRepository } from '../src/modules/auth/password-reset/password-reset.repository';
 
 const pooledUrl =
   'postgresql://neondb_owner:secret@ep-winter-math-azeayw91-pooler.c-3.ap-southeast-1.aws.neon.tech/Apartment?sslmode=require&channel_binding=require';
@@ -72,6 +73,8 @@ describe('Auth register/login API', () => {
     })
       .overrideProvider(AuthRepository)
       .useValue(repository)
+      .overrideProvider(PasswordResetRepository)
+      .useValue({})
       .compile();
     app = module.createNestApplication({ logger: false });
     configureApplication(app);

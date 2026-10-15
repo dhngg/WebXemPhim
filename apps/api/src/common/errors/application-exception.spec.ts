@@ -24,6 +24,14 @@ describe('application error mapping', () => {
     ['WORKSPACE_MEMBER_NOT_FOUND', HttpStatus.NOT_FOUND],
     ['WORKSPACE_MEMBER_ALREADY_EXISTS', HttpStatus.CONFLICT],
     ['WORKSPACE_OWNER_PROTECTED', HttpStatus.CONFLICT],
+    ['BUILDING_NOT_FOUND', HttpStatus.NOT_FOUND],
+    ['BUILDING_ARCHIVED', HttpStatus.CONFLICT],
+    ['ROOM_NOT_FOUND', HttpStatus.NOT_FOUND],
+    ['ROOM_ARCHIVED', HttpStatus.CONFLICT],
+    ['ROOM_HAS_ACTIVE_CONTRACT', HttpStatus.CONFLICT],
+    ['ROOM_CODE_CONFLICT', HttpStatus.CONFLICT],
+    ['AMENITY_NOT_FOUND', HttpStatus.NOT_FOUND],
+    ['AMENITY_ALREADY_EXISTS', HttpStatus.CONFLICT],
   ] as const)('maps %s to HTTP %s', (code, status) => {
     const error = new ApplicationException(code);
     expect(error.getStatus()).toBe(status);

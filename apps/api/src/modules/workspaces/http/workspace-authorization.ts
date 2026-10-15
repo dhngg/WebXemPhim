@@ -45,7 +45,9 @@ export class WorkspaceRoleGuard implements CanActivate {
       getAuthenticatedUser(request).id,
       workspaceId,
     );
-    if (!workspace || !roles.includes(workspace.role)) {
+    // Historical MANAGER/STAFF rows remain in the database, but V1 grants
+    // operational workspace access only to OWNER memberships.
+    if (!workspace || workspace.role !== 'OWNER' || !roles.includes('OWNER')) {
       throw new ApplicationException('WORKSPACE_NOT_FOUND');
     }
     const isBusinessWrite = !['GET', 'HEAD', 'OPTIONS'].includes(request.method);

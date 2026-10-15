@@ -5,3 +5,5 @@ package-lock.json
 playwright-report
 test-results
 artifacts
+# Frontend được nhóm khác viết theo style riêng; chưa format hàng loạt (xem FE-00).
+apps/web

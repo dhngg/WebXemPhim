@@ -14,13 +14,8 @@ import {
 } from '../src/modules/auth/services/auth-service.contract';
 import { WorkspaceModule } from '../src/modules/workspaces/workspace.module';
 import {
-  WorkspaceMemberAlreadyExistsRepositoryError,
-  WorkspaceMemberNotFoundRepositoryError,
-  WorkspaceOwnerConflictRepositoryError,
-  WorkspaceOwnerProtectedRepositoryError,
   WorkspaceRepository,
   type WorkspaceAccessRecord,
-  type WorkspaceMemberRecord,
 } from '../src/modules/workspaces/repositories/workspace.repository';
 
 const authenticatedUser = {
@@ -67,18 +62,6 @@ describe('Workspace API foundation', () => {
     updatedAt: new Date('2026-10-14T00:00:00.000Z'),
     role: 'OWNER',
   };
-  const member: WorkspaceMemberRecord = {
-    id: 'b5f3ea0b-7158-4bd7-aee0-cbf6d274302c',
-    role: 'MANAGER',
-    createdAt: new Date('2026-10-14T00:00:00.000Z'),
-    updatedAt: new Date('2026-10-14T00:00:00.000Z'),
-    user: {
-      id: '25dc48f1-71e6-4ad1-9c2f-29db4b565f73',
-      email: 'member@example.com',
-      displayName: 'Member',
-    },
-  };
-
   beforeAll(async () => {
     repository = {
       createWithOwner: jest.fn(),
@@ -116,6 +99,7 @@ describe('Workspace API foundation', () => {
   afterAll(async () => app?.close());
 
   beforeEach(() => {
+    jest.clearAllMocks();
     repository.createWithOwner.mockResolvedValue(workspace);
     repository.findForUser.mockResolvedValue([workspace]);
     repository.findAccessibleWorkspace.mockResolvedValue(workspace);
@@ -125,11 +109,6 @@ describe('Workspace API foundation', () => {
       archivedAt: new Date('2026-10-14T01:00:00.000Z'),
     });
     repository.restore.mockResolvedValue(workspace);
-    repository.listMembers.mockResolvedValue([member]);
-    repository.addMember.mockResolvedValue(member);
-    repository.updateMemberRole.mockResolvedValue({ ...member, role: 'STAFF' });
-    repository.removeMember.mockResolvedValue();
-    repository.transferOwnership.mockResolvedValue();
   });
 
   it('creates a workspace and assigns OWNER server-side', async () => {
@@ -260,223 +239,60 @@ describe('Workspace API foundation', () => {
       .expect(({ body }) => expect(body.code).toBe('CSRF_VALIDATION_FAILED'));
   });
 
-  it('allows only OWNER to list members, including while archived', async () => {
-    const result = await request(app.getHttpServer())
-      .get(`/api/v1/workspaces/${workspace.id}/members`)
-      .set('Authorization', 'Bearer access-token')
-      .expect(200);
-    expect(repository.listMembers).toHaveBeenCalledWith(workspace.id, userId);
-    expect(result.body).toEqual([
-      expect.objectContaining({
-        id: member.id,
-        role: 'MANAGER',
-        user: expect.objectContaining({ email: 'member@example.com' }),
-      }),
-    ]);
-
-    repository.findAccessibleWorkspace.mockResolvedValueOnce({
-      ...workspace,
-      status: 'ARCHIVED',
-      archivedAt: new Date('2026-10-14T01:00:00.000Z'),
-    });
-    await request(app.getHttpServer())
-      .get(`/api/v1/workspaces/${workspace.id}/members`)
-      .set('Authorization', 'Bearer access-token')
-      .expect(200);
-
-    repository.findAccessibleWorkspace.mockResolvedValueOnce({ ...workspace, role: 'MANAGER' });
-    await request(app.getHttpServer())
-      .get(`/api/v1/workspaces/${workspace.id}/members`)
-      .set('Authorization', 'Bearer access-token')
-      .expect(404)
-      .expect(({ body }) => expect(body.code).toBe('WORKSPACE_NOT_FOUND'));
-  });
-
-  it('normalizes email and adds only a MANAGER or STAFF', async () => {
-    await request(app.getHttpServer())
-      .post(`/api/v1/workspaces/${workspace.id}/members`)
-      .set('Authorization', 'Bearer access-token')
-      .set('Origin', 'https://app.example.com')
-      .set('X-CSRF-Protection', '1')
-      .send({ email: ' MEMBER@Example.COM ', role: 'MANAGER' })
-      .expect(201)
-      .expect(({ body }) => expect(body.id).toBe(member.id));
-    expect(repository.addMember).toHaveBeenCalledWith(
-      workspace.id,
-      userId,
-      'member@example.com',
-      'MANAGER',
-    );
-
-    await request(app.getHttpServer())
-      .post(`/api/v1/workspaces/${workspace.id}/members`)
-      .set('Authorization', 'Bearer access-token')
-      .set('Origin', 'https://app.example.com')
-      .set('X-CSRF-Protection', '1')
-      .send({ email: 'owner@example.com', role: 'OWNER' })
-      .expect(400)
-      .expect(({ body }) => expect(body.code).toBe('VALIDATION_ERROR'));
-  });
-
-  it('updates MANAGER/STAFF and removes a non-owner membership', async () => {
-    await request(app.getHttpServer())
-      .patch(`/api/v1/workspaces/${workspace.id}/members/${member.id}`)
-      .set('Authorization', 'Bearer access-token')
-      .set('Origin', 'https://app.example.com')
-      .set('X-CSRF-Protection', '1')
-      .send({ role: 'STAFF' })
-      .expect(200)
-      .expect(({ body }) => expect(body.role).toBe('STAFF'));
-    expect(repository.updateMemberRole).toHaveBeenCalledWith(
-      workspace.id,
-      userId,
-      member.id,
-      'STAFF',
-    );
-
-    await request(app.getHttpServer())
-      .delete(`/api/v1/workspaces/${workspace.id}/members/${member.id}`)
-      .set('Authorization', 'Bearer access-token')
-      .set('Origin', 'https://app.example.com')
-      .set('X-CSRF-Protection', '1')
-      .expect(204);
-    expect(repository.removeMember).toHaveBeenCalledWith(workspace.id, userId, member.id);
-  });
-
-  it('protects OWNER and maps duplicate membership through the public contract', async () => {
-    repository.updateMemberRole.mockRejectedValueOnce(new WorkspaceOwnerProtectedRepositoryError());
-    await request(app.getHttpServer())
-      .patch(`/api/v1/workspaces/${workspace.id}/members/${member.id}`)
-      .set('Authorization', 'Bearer access-token')
-      .set('Origin', 'https://app.example.com')
-      .set('X-CSRF-Protection', '1')
-      .send({ role: 'STAFF' })
-      .expect(409)
-      .expect(({ body }) => expect(body.code).toBe('WORKSPACE_OWNER_PROTECTED'));
-
-    repository.addMember.mockRejectedValueOnce(new WorkspaceMemberAlreadyExistsRepositoryError());
-    await request(app.getHttpServer())
-      .post(`/api/v1/workspaces/${workspace.id}/members`)
-      .set('Authorization', 'Bearer access-token')
-      .set('Origin', 'https://app.example.com')
-      .set('X-CSRF-Protection', '1')
-      .send({ email: 'member@example.com', role: 'STAFF' })
-      .expect(409)
-      .expect(({ body }) => expect(body.code).toBe('WORKSPACE_MEMBER_ALREADY_EXISTS'));
-
-    repository.removeMember.mockRejectedValueOnce(new WorkspaceOwnerProtectedRepositoryError());
-    await request(app.getHttpServer())
-      .delete(`/api/v1/workspaces/${workspace.id}/members/${member.id}`)
-      .set('Authorization', 'Bearer access-token')
-      .set('Origin', 'https://app.example.com')
-      .set('X-CSRF-Protection', '1')
-      .expect(409)
-      .expect(({ body }) => expect(body.code).toBe('WORKSPACE_OWNER_PROTECTED'));
-
-    repository.addMember.mockRejectedValueOnce(new WorkspaceMemberNotFoundRepositoryError());
-    await request(app.getHttpServer())
-      .post(`/api/v1/workspaces/${workspace.id}/members`)
-      .set('Authorization', 'Bearer access-token')
-      .set('Origin', 'https://app.example.com')
-      .set('X-CSRF-Protection', '1')
-      .send({ email: 'missing@example.com', role: 'STAFF' })
-      .expect(404)
-      .expect(({ body }) => expect(body.code).toBe('WORKSPACE_MEMBER_NOT_FOUND'));
-  });
-
-  it('blocks every membership write when the workspace is archived', async () => {
-    repository.findAccessibleWorkspace.mockResolvedValue({
-      ...workspace,
-      status: 'ARCHIVED',
-      archivedAt: new Date('2026-10-14T01:00:00.000Z'),
-    });
-
-    await request(app.getHttpServer())
-      .post(`/api/v1/workspaces/${workspace.id}/members`)
-      .set('Authorization', 'Bearer access-token')
-      .set('Origin', 'https://app.example.com')
-      .set('X-CSRF-Protection', '1')
-      .send({ email: 'member@example.com', role: 'STAFF' })
-      .expect(409)
-      .expect(({ body }) => expect(body.code).toBe('WORKSPACE_ARCHIVED'));
-    expect(repository.addMember).not.toHaveBeenCalled();
-  });
-
-  it('transfers ownership only for the current OWNER and an ACTIVE target membership', async () => {
-    repository.transferOwnership.mockResolvedValueOnce();
-    await request(app.getHttpServer())
-      .post(`/api/v1/workspaces/${workspace.id}/transfer-ownership`)
-      .set('Authorization', 'Bearer access-token')
-      .set('Origin', 'https://app.example.com')
-      .set('X-CSRF-Protection', '1')
-      .send({ targetMembershipId: member.id })
-      .expect(204);
-    expect(repository.transferOwnership).toHaveBeenCalledWith(workspace.id, userId, member.id);
-
-    repository.findAccessibleWorkspace.mockResolvedValueOnce({ ...workspace, role: 'MANAGER' });
-    await request(app.getHttpServer())
-      .post(`/api/v1/workspaces/${workspace.id}/transfer-ownership`)
-      .set('Authorization', 'Bearer access-token')
-      .set('Origin', 'https://app.example.com')
-      .set('X-CSRF-Protection', '1')
-      .send({ targetMembershipId: member.id })
-      .expect(404)
-      .expect(({ body }) => expect(body.code).toBe('WORKSPACE_NOT_FOUND'));
-  });
-
-  it('blocks ownership transfer for archived workspaces and invalid targets', async () => {
-    repository.findAccessibleWorkspace.mockResolvedValueOnce({
-      ...workspace,
-      status: 'ARCHIVED',
-      archivedAt: new Date('2026-10-14T01:00:00.000Z'),
-    });
-    await request(app.getHttpServer())
-      .post(`/api/v1/workspaces/${workspace.id}/transfer-ownership`)
-      .set('Authorization', 'Bearer access-token')
-      .set('Origin', 'https://app.example.com')
-      .set('X-CSRF-Protection', '1')
-      .send({ targetMembershipId: member.id })
-      .expect(409)
-      .expect(({ body }) => expect(body.code).toBe('WORKSPACE_ARCHIVED'));
-
-    repository.transferOwnership.mockRejectedValueOnce(
-      new WorkspaceMemberNotFoundRepositoryError(),
-    );
-    await request(app.getHttpServer())
-      .post(`/api/v1/workspaces/${workspace.id}/transfer-ownership`)
-      .set('Authorization', 'Bearer access-token')
-      .set('Origin', 'https://app.example.com')
-      .set('X-CSRF-Protection', '1')
-      .send({ targetMembershipId: member.id })
-      .expect(404)
-      .expect(({ body }) => expect(body.code).toBe('WORKSPACE_MEMBER_NOT_FOUND'));
-  });
-
-  it('returns one success and one conflict for concurrent transfer requests by the same OWNER', async () => {
-    let claimed = false;
-    repository.transferOwnership.mockImplementation(async () => {
-      await Promise.resolve();
-      if (claimed) throw new WorkspaceOwnerConflictRepositoryError();
-      claimed = true;
-    });
-
-    const responses = await Promise.all([
-      request(app.getHttpServer())
-        .post(`/api/v1/workspaces/${workspace.id}/transfer-ownership`)
+  it.each([
+    ['GET', 'members'],
+    ['POST', 'members'],
+    ['PATCH', 'members/b5f3ea0b-7158-4bd7-aee0-cbf6d274302c'],
+    ['DELETE', 'members/b5f3ea0b-7158-4bd7-aee0-cbf6d274302c'],
+    ['POST', 'transfer-ownership'],
+  ] as const)(
+    'has retired %s /workspaces/:id/%s for everyone, OWNER included',
+    async (method, path) => {
+      const url = `/api/v1/workspaces/${workspace.id}/${path}`;
+      const server = request(app.getHttpServer());
+      const call = {
+        GET: server.get,
+        POST: server.post,
+        PATCH: server.patch,
+        DELETE: server.delete,
+      }[method].call(server, url);
+      await call
         .set('Authorization', 'Bearer access-token')
         .set('Origin', 'https://app.example.com')
         .set('X-CSRF-Protection', '1')
-        .send({ targetMembershipId: member.id }),
-      request(app.getHttpServer())
-        .post(`/api/v1/workspaces/${workspace.id}/transfer-ownership`)
-        .set('Authorization', 'Bearer access-token')
-        .set('Origin', 'https://app.example.com')
-        .set('X-CSRF-Protection', '1')
-        .send({ targetMembershipId: 'a8b9ea5e-ab95-4827-953e-62eb24859fc2' }),
-    ]);
+        .send(
+          method === 'GET' || method === 'DELETE'
+            ? undefined
+            : { email: 'm@example.com', role: 'MANAGER', targetMembershipId: 'x' },
+        )
+        .expect(404);
+      expect(repository.listMembers).not.toHaveBeenCalled();
+      expect(repository.addMember).not.toHaveBeenCalled();
+      expect(repository.updateMemberRole).not.toHaveBeenCalled();
+      expect(repository.removeMember).not.toHaveBeenCalled();
+      expect(repository.transferOwnership).not.toHaveBeenCalled();
+    },
+  );
 
-    expect(responses.map((response) => response.status).sort()).toEqual([204, 409]);
-    const conflict = responses.find((response) => response.status === 409);
-    expect(conflict?.body.code).toBe('WORKSPACE_OWNER_CONFLICT');
-  });
+  it.each(['MANAGER', 'STAFF'] as const)(
+    'blocks legacy %s from workspace detail and lifecycle',
+    async (role) => {
+      repository.findAccessibleWorkspace.mockResolvedValue({ ...workspace, role });
+      await request(app.getHttpServer())
+        .get(`/api/v1/workspaces/${workspace.id}`)
+        .set('Authorization', 'Bearer access-token')
+        .expect(404)
+        .expect(({ body }) => expect(body.code).toBe('WORKSPACE_NOT_FOUND'));
+      for (const action of ['archive', 'restore']) {
+        await request(app.getHttpServer())
+          .patch(`/api/v1/workspaces/${workspace.id}/${action}`)
+          .set('Authorization', 'Bearer access-token')
+          .set('Origin', 'https://app.example.com')
+          .set('X-CSRF-Protection', '1')
+          .expect(404);
+      }
+      expect(repository.archive).not.toHaveBeenCalled();
+      expect(repository.restore).not.toHaveBeenCalled();
+    },
+  );
 });

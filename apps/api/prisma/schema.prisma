@@ -41,29 +41,162 @@ enum WorkspaceStatus {
   @@map("workspace_status")
 }
 
+enum BuildingStatus {
+  ACTIVE
+  ARCHIVED
+
+  @@map("building_status")
+}
+
+enum RoomStatus {
+  VACANT
+  OCCUPIED
+  UNAVAILABLE
+  ARCHIVED
+
+  @@map("room_status")
+}
+
+enum ViewingRequestStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  CANCELLED
+
+  @@map("viewing_request_status")
+}
+
+enum TenantStatus {
+  ACTIVE
+  ARCHIVED
+
+  @@map("tenant_status")
+}
+
+enum TenantLinkRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("tenant_link_request_status")
+}
+
+enum LandlordApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("landlord_application_status")
+}
+
+enum ContractStatus {
+  ACTIVE
+  ENDED
+
+  @@map("contract_status")
+}
+
+enum VehicleStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("vehicle_status")
+}
+
+enum RateServiceType {
+  ELECTRICITY
+  WATER
+  WIFI
+  TRASH
+  PARKING
+  OTHER
+
+  @@map("rate_service_type")
+}
+
+enum RateBillingUnit {
+  KWH
+  CUBIC_METER
+  ROOM
+  PERSON
+  VEHICLE
+  FIXED
+
+  @@map("rate_billing_unit")
+}
+
+enum RatePlanStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("rate_plan_status")
+}
+
 model User {
-  id           String                @id @default(uuid()) @db.Uuid
-  email        String                @unique(map: "users_email_key") @db.VarChar(254)
-  passwordHash String                @map("password_hash") @db.Text
-  displayName  String?               @map("display_name") @db.VarChar(100)
-  status       UserStatus            @default(ACTIVE)
-  disabledAt   DateTime?             @map("disabled_at") @db.Timestamptz(6)
-  createdAt    DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
-  sessions     AuthSession[]
-  memberships  WorkspaceMembership[]
+  id                          String                @id @default(uuid()) @db.Uuid
+  email                       String                @unique(map: "users_email_key") @db.VarChar(254)
+  passwordHash                String                @map("password_hash") @db.Text
+  displayName                 String?               @map("display_name") @db.VarChar(100)
+  status                      UserStatus            @default(ACTIVE)
+  disabledAt                  DateTime?             @map("disabled_at") @db.Timestamptz(6)
+  createdAt                   DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                   DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  sessions                    AuthSession[]
+  memberships                 WorkspaceMembership[]
+  viewingRequests             ViewingRequest[]      @relation("ViewingRequester")
+  viewingDecisions            ViewingRequest[]      @relation("ViewingDecider")
+  tenantLinkRequests          TenantLinkRequest[]   @relation("TenantLinkRequester")
+  tenantLinkDecisions         TenantLinkRequest[]   @relation("TenantLinkDecider")
+  tenantLinks                 TenantUserLink[]      @relation("TenantLinkedUser")
+  tenantLinkApprovals         TenantUserLink[]      @relation("TenantLinkApprover")
+  tenantLinkRevocations       TenantUserLink[]      @relation("TenantLinkRevoker")
+  contractsCreated            Contract[]            @relation("ContractCreator")
+  contractsEnded              Contract[]            @relation("ContractEnder")
+  notifications               Notification[]
+  platformAdmin               PlatformAdmin?
+  passwordResetTokens         PasswordResetToken[]
+  adminAuditLogs              AdminAuditLog[]
+  listingModerations          ListingModeration[]
+  landlordApplications        LandlordApplication[]
+  decidedLandlordApplications LandlordApplication[] @relation("LandlordApplicationDecider")
+  tenantInvitationsCreated    TenantInvitation[]    @relation("TenantInvitationCreator")
+  tenantInvitationsAccepted   TenantInvitation[]    @relation("TenantInvitationAccepter")
 
   @@map("users")
 }
 
 model Workspace {
-  id          String                @id @default(uuid()) @db.Uuid
-  name        String                @db.VarChar(100)
-  status      WorkspaceStatus       @default(ACTIVE)
-  archivedAt  DateTime?             @map("archived_at") @db.Timestamptz(6)
-  createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
-  memberships WorkspaceMembership[]
+  id                     String                     @id @default(uuid()) @db.Uuid
+  name                   String                     @db.VarChar(100)
+  status                 WorkspaceStatus            @default(ACTIVE)
+  archivedAt             DateTime?                  @map("archived_at") @db.Timestamptz(6)
+  createdAt              DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  memberships            WorkspaceMembership[]
+  buildings              Building[]
+  rooms                  Room[]
+  amenities              Amenity[]
+  roomImages             RoomImage[]
+  listings               Listing[]
+  viewingRequests        ViewingRequest[]
+  tenants                Tenant[]
+  tenantLinkRequests     TenantLinkRequest[]
+  tenantUserLinks        TenantUserLink[]
+  tenantInvitations      TenantInvitation[]
+  contracts              Contract[]
+  vehicles               Vehicle[]
+  ratePlans              RatePlan[]
+  meterReadings          MeterReading[]
+  meterAdjustments       MeterReadingAdjustment[]
+  invoiceItems           InvoiceItem[]
+  invoices               Invoice[]
+  roomServiceAssignments RoomServiceAssignment[]
+  invoiceAdjustments     InvoiceAdjustment[]
+  invoicePayments        InvoicePayment[]
+  contractDepositEntries ContractDepositEntry[]
+  maintenanceRequests    MaintenanceRequest[]
+  maintenanceHistory     MaintenanceStatusHistory[]
+  notifications          Notification[]
 
   @@map("workspaces")
 }
@@ -82,6 +215,352 @@ model WorkspaceMembership {
   @@index([userId], map: "workspace_memberships_user_id_idx")
   @@index([workspaceId, role], map: "workspace_memberships_workspace_id_role_idx")
   @@map("workspace_memberships")
+}
+
+model Building {
+  id           String         @id @default(uuid()) @db.Uuid
+  workspaceId  String         @map("workspace_id") @db.Uuid
+  name         String         @db.VarChar(100)
+  description  String?        @db.Text
+  status       BuildingStatus @default(ACTIVE)
+  archivedAt   DateTime?      @map("archived_at") @db.Timestamptz(6)
+  addressLine1 String         @map("address_line_1") @db.VarChar(200)
+  addressLine2 String?        @map("address_line_2") @db.VarChar(200)
+  ward         String?        @db.VarChar(100)
+  district     String?        @db.VarChar(100)
+  city         String         @db.VarChar(100)
+  postalCode   String?        @map("postal_code") @db.VarChar(20)
+  countryCode  String         @default("VN") @map("country_code") @db.Char(2)
+  latitude     Decimal?       @db.Decimal(9, 6)
+  longitude    Decimal?       @db.Decimal(10, 6)
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace    Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  rooms        Room[]
+  ratePlans    RatePlan[]
+
+  @@unique([id, workspaceId], map: "buildings_id_workspace_id_key")
+  @@index([workspaceId], map: "buildings_workspace_id_idx")
+  @@index([workspaceId, city, district], map: "buildings_workspace_id_city_district_idx")
+  @@map("buildings")
+}
+
+model Room {
+  id                  String                  @id @default(uuid()) @db.Uuid
+  workspaceId         String                  @map("workspace_id") @db.Uuid
+  buildingId          String                  @map("building_id") @db.Uuid
+  code                String                  @db.VarChar(50)
+  areaSqm             Decimal                 @map("area_sqm") @db.Decimal(10, 2)
+  monthlyRent         Decimal                 @map("monthly_rent") @db.Decimal(14, 2)
+  maxOccupants        Int                     @default(1) @map("max_occupants")
+  description         String?                 @db.Text
+  status              RoomStatus              @default(VACANT)
+  archivedAt          DateTime?               @map("archived_at") @db.Timestamptz(6)
+  createdAt           DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace           Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  building            Building                @relation(fields: [buildingId, workspaceId], references: [id, workspaceId], onDelete: Restrict)
+  amenities           RoomAmenity[]
+  images              RoomImage[]
+  listing             Listing?
+  contracts           Contract[]
+  meterReadings       MeterReading[]
+  invoices            Invoice[]
+  serviceAssignments  RoomServiceAssignment[]
+  maintenanceRequests MaintenanceRequest[]
+
+  @@unique([id, workspaceId], map: "rooms_id_workspace_id_key")
+  @@unique([id, buildingId, workspaceId], map: "rooms_id_building_id_workspace_id_key")
+  @@unique([buildingId, code], map: "rooms_building_id_code_key")
+  @@index([workspaceId, status], map: "rooms_workspace_id_status_idx")
+  @@index([buildingId, status], map: "rooms_building_id_status_idx")
+  @@map("rooms")
+}
+
+model RoomImage {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  roomId      String    @map("room_id") @db.Uuid
+  url         String    @db.VarChar(2048)
+  altText     String?   @map("alt_text") @db.VarChar(200)
+  sortOrder   Int       @map("sort_order")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  room        Room      @relation(fields: [roomId, workspaceId], references: [id, workspaceId], onDelete: Restrict)
+
+  @@index([workspaceId], map: "room_images_workspace_id_idx")
+  @@index([roomId, sortOrder, id], map: "room_images_room_id_sort_order_id_idx")
+  @@map("room_images")
+}
+
+model Listing {
+  id              String             @id @default(uuid()) @db.Uuid
+  workspaceId     String             @map("workspace_id") @db.Uuid
+  roomId          String             @unique(map: "listings_room_id_key") @map("room_id") @db.Uuid
+  isPublished     Boolean            @default(false) @map("is_published")
+  publishedAt     DateTime?          @map("published_at") @db.Timestamptz(6)
+  unpublishedAt   DateTime?          @map("unpublished_at") @db.Timestamptz(6)
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace       Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  room            Room               @relation(fields: [roomId, workspaceId], references: [id, workspaceId], onDelete: Restrict)
+  viewingRequests ViewingRequest[]
+  moderation      ListingModeration?
+
+  @@unique([id, workspaceId], map: "listings_id_workspace_id_key")
+  @@unique([roomId, workspaceId], map: "listings_room_id_workspace_id_key")
+  @@index([workspaceId], map: "listings_workspace_id_idx")
+  @@index([isPublished, publishedAt, id], map: "listings_publication_idx")
+  @@map("listings")
+}
+
+model ViewingRequest {
+  id              String               @id @default(uuid()) @db.Uuid
+  workspaceId     String               @map("workspace_id") @db.Uuid
+  listingId       String               @map("listing_id") @db.Uuid
+  requesterUserId String               @map("requester_user_id") @db.Uuid
+  scheduledAt     DateTime             @map("scheduled_at") @db.Timestamptz(6)
+  message         String?              @db.VarChar(1000)
+  status          ViewingRequestStatus @default(PENDING)
+  decisionNote    String?              @map("decision_note") @db.VarChar(1000)
+  decidedByUserId String?              @map("decided_by_user_id") @db.Uuid
+  decidedAt       DateTime?            @map("decided_at") @db.Timestamptz(6)
+  cancelledAt     DateTime?            @map("cancelled_at") @db.Timestamptz(6)
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace       Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  listing         Listing              @relation(fields: [listingId, workspaceId], references: [id, workspaceId], onDelete: Restrict)
+  requester       User                 @relation("ViewingRequester", fields: [requesterUserId], references: [id], onDelete: Restrict)
+  decidedBy       User?                @relation("ViewingDecider", fields: [decidedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([requesterUserId, status, scheduledAt], map: "viewing_requests_requester_status_scheduled_idx")
+  @@index([workspaceId, status, scheduledAt], map: "viewing_requests_workspace_status_scheduled_idx")
+  @@index([listingId, scheduledAt], map: "viewing_requests_listing_scheduled_idx")
+  @@map("viewing_requests")
+}
+
+model Tenant {
+  id           String              @id @default(uuid()) @db.Uuid
+  workspaceId  String              @map("workspace_id") @db.Uuid
+  fullName     String              @map("full_name") @db.VarChar(150)
+  phone        String?             @db.VarChar(20)
+  email        String?             @db.VarChar(254)
+  dateOfBirth  DateTime?           @map("date_of_birth") @db.Date
+  address      String?             @db.VarChar(500)
+  notes        String?             @db.Text
+  status       TenantStatus        @default(ACTIVE)
+  archivedAt   DateTime?           @map("archived_at") @db.Timestamptz(6)
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace    Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  linkRequests TenantLinkRequest[]
+  userLinks    TenantUserLink[]
+  invitations  TenantInvitation[]
+  contracts    Contract[]
+  vehicles     Vehicle[]
+
+  @@unique([id, workspaceId], map: "tenants_id_workspace_id_key")
+  @@index([workspaceId, status, fullName], map: "tenants_workspace_status_full_name_idx")
+  @@index([workspaceId, phone], map: "tenants_workspace_phone_idx")
+  @@index([workspaceId, email], map: "tenants_workspace_email_idx")
+  @@map("tenants")
+}
+
+model TenantLinkRequest {
+  id              String                  @id @default(uuid()) @db.Uuid
+  workspaceId     String                  @map("workspace_id") @db.Uuid
+  tenantId        String                  @map("tenant_id") @db.Uuid
+  requesterUserId String                  @map("requester_user_id") @db.Uuid
+  status          TenantLinkRequestStatus @default(PENDING)
+  message         String?                 @db.VarChar(500)
+  decisionNote    String?                 @map("decision_note") @db.VarChar(500)
+  decidedByUserId String?                 @map("decided_by_user_id") @db.Uuid
+  decidedAt       DateTime?               @map("decided_at") @db.Timestamptz(6)
+  createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace       Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  tenant          Tenant                  @relation(fields: [tenantId, workspaceId], references: [id, workspaceId], onDelete: Restrict)
+  requester       User                    @relation("TenantLinkRequester", fields: [requesterUserId], references: [id], onDelete: Restrict)
+  decidedBy       User?                   @relation("TenantLinkDecider", fields: [decidedByUserId], references: [id], onDelete: Restrict)
+  approvedLink    TenantUserLink?
+
+  @@index([requesterUserId, status, createdAt], map: "tenant_link_requests_requester_status_created_idx")
+  @@index([workspaceId, status, createdAt], map: "tenant_link_requests_workspace_status_created_idx")
+  @@index([tenantId, status], map: "tenant_link_requests_tenant_status_idx")
+  @@map("tenant_link_requests")
+}
+
+model TenantUserLink {
+  id               String             @id @default(uuid()) @db.Uuid
+  workspaceId      String             @map("workspace_id") @db.Uuid
+  tenantId         String             @map("tenant_id") @db.Uuid
+  userId           String             @map("user_id") @db.Uuid
+  linkRequestId    String?            @unique(map: "tenant_user_links_link_request_id_key") @map("link_request_id") @db.Uuid
+  invitationId     String?            @unique(map: "tenant_user_links_invitation_id_key") @map("invitation_id") @db.Uuid
+  approvedByUserId String             @map("approved_by_user_id") @db.Uuid
+  linkedAt         DateTime           @default(now()) @map("linked_at") @db.Timestamptz(6)
+  revokedAt        DateTime?          @map("revoked_at") @db.Timestamptz(6)
+  revokedByUserId  String?            @map("revoked_by_user_id") @db.Uuid
+  revokeReason     String?            @map("revoke_reason") @db.VarChar(500)
+  workspace        Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  tenant           Tenant             @relation(fields: [tenantId, workspaceId], references: [id, workspaceId], onDelete: Restrict)
+  user             User               @relation("TenantLinkedUser", fields: [userId], references: [id], onDelete: Restrict)
+  linkRequest      TenantLinkRequest? @relation(fields: [linkRequestId], references: [id], onDelete: Restrict)
+  invitation       TenantInvitation?  @relation(fields: [invitationId], references: [id], onDelete: Restrict)
+  approvedBy       User               @relation("TenantLinkApprover", fields: [approvedByUserId], references: [id], onDelete: Restrict)
+  revokedBy        User?              @relation("TenantLinkRevoker", fields: [revokedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([userId, revokedAt], map: "tenant_user_links_user_revoked_idx")
+  @@index([workspaceId, revokedAt], map: "tenant_user_links_workspace_revoked_idx")
+  @@index([tenantId, revokedAt], map: "tenant_user_links_tenant_revoked_idx")
+  @@map("tenant_user_links")
+}
+
+model TenantInvitation {
+  id               String          @id @default(uuid()) @db.Uuid
+  workspaceId      String          @map("workspace_id") @db.Uuid
+  tenantId         String          @map("tenant_id") @db.Uuid
+  createdByUserId  String          @map("created_by_user_id") @db.Uuid
+  tokenHash        Bytes           @unique(map: "tenant_invitations_token_hash_key") @map("token_hash") @db.ByteA
+  expiresAt        DateTime        @map("expires_at") @db.Timestamptz(6)
+  acceptedAt       DateTime?       @map("accepted_at") @db.Timestamptz(6)
+  acceptedByUserId String?         @map("accepted_by_user_id") @db.Uuid
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace        Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  tenant           Tenant          @relation(fields: [tenantId, workspaceId], references: [id, workspaceId], onDelete: Restrict)
+  createdBy        User            @relation("TenantInvitationCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  acceptedBy       User?           @relation("TenantInvitationAccepter", fields: [acceptedByUserId], references: [id], onDelete: Restrict)
+  createdLink      TenantUserLink?
+
+  @@index([tenantId, expiresAt])
+  @@index([acceptedByUserId, acceptedAt])
+  @@map("tenant_invitations")
+}
+
+model LandlordApplication {
+  id                 String                    @id @default(uuid()) @db.Uuid
+  userId             String                    @map("user_id") @db.Uuid
+  status             LandlordApplicationStatus @default(PENDING)
+  reason             String                    @db.VarChar(1000)
+  decisionNote       String?                   @map("decision_note") @db.VarChar(1000)
+  decidedByUserId    String?                   @map("decided_by_user_id") @db.Uuid
+  decidedAt          DateTime?                 @map("decided_at") @db.Timestamptz(6)
+  workspaceCreatedAt DateTime?                 @map("workspace_created_at") @db.Timestamptz(6)
+  createdAt          DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user               User                      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  decidedBy          User?                     @relation("LandlordApplicationDecider", fields: [decidedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@map("landlord_applications")
+}
+
+model Contract {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  workspaceId         String                 @map("workspace_id") @db.Uuid
+  roomId              String                 @map("room_id") @db.Uuid
+  tenantId            String                 @map("tenant_id") @db.Uuid
+  startDate           DateTime               @map("start_date") @db.Date
+  endDate             DateTime               @map("end_date") @db.Date
+  monthlyRent         Decimal                @map("monthly_rent") @db.Decimal(14, 2)
+  status              ContractStatus         @default(ACTIVE)
+  notes               String?                @db.Text
+  createdByUserId     String                 @map("created_by_user_id") @db.Uuid
+  endedByUserId       String?                @map("ended_by_user_id") @db.Uuid
+  endedAt             DateTime?              @map("ended_at") @db.Timestamptz(6)
+  createdAt           DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace           Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  room                Room                   @relation(fields: [roomId, workspaceId], references: [id, workspaceId], onDelete: Restrict)
+  tenant              Tenant                 @relation(fields: [tenantId, workspaceId], references: [id, workspaceId], onDelete: Restrict)
+  createdBy           User                   @relation("ContractCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  endedBy             User?                  @relation("ContractEnder", fields: [endedByUserId], references: [id], onDelete: Restrict)
+  invoices            Invoice[]
+  depositEntries      ContractDepositEntry[]
+  maintenanceRequests MaintenanceRequest[]
+
+  @@unique([id, roomId, tenantId, workspaceId], map: "contracts_id_room_id_tenant_id_workspace_id_key")
+  @@unique([id, workspaceId], map: "contracts_id_workspace_id_key")
+  @@index([workspaceId, status, startDate], map: "contracts_workspace_status_start_idx")
+  @@index([roomId, status, startDate, endDate], map: "contracts_room_status_period_idx")
+  @@index([tenantId, status, startDate], map: "contracts_tenant_status_start_idx")
+  @@map("contracts")
+}
+
+model Vehicle {
+  id             String        @id @default(uuid()) @db.Uuid
+  workspaceId    String        @map("workspace_id") @db.Uuid
+  tenantId       String        @map("tenant_id") @db.Uuid
+  licensePlate   String        @map("license_plate") @db.VarChar(20)
+  vehicleType    String        @map("vehicle_type") @db.VarChar(50)
+  brand          String?       @db.VarChar(100)
+  model          String?       @db.VarChar(100)
+  color          String?       @db.VarChar(50)
+  notes          String?       @db.Text
+  status         VehicleStatus @default(ACTIVE)
+  inactiveAt     DateTime?     @map("inactive_at") @db.Timestamptz(6)
+  inactiveReason String?       @map("inactive_reason") @db.VarChar(500)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  tenant         Tenant        @relation(fields: [tenantId, workspaceId], references: [id, workspaceId], onDelete: Restrict)
+
+  @@unique([workspaceId, licensePlate], map: "vehicles_workspace_license_plate_key")
+  @@index([workspaceId, status, createdAt], map: "vehicles_workspace_status_created_idx")
+  @@index([tenantId, status], map: "vehicles_tenant_status_idx")
+  @@map("vehicles")
+}
+
+model RatePlan {
+  id            String          @id @default(uuid()) @db.Uuid
+  workspaceId   String          @map("workspace_id") @db.Uuid
+  buildingId    String          @map("building_id") @db.Uuid
+  code          String          @db.VarChar(50)
+  name          String          @db.VarChar(100)
+  serviceType   RateServiceType @map("service_type")
+  billingUnit   RateBillingUnit @map("billing_unit")
+  unitPrice     Decimal         @map("unit_price") @db.Decimal(14, 4)
+  effectiveFrom DateTime        @map("effective_from") @db.Date
+  effectiveTo   DateTime?       @map("effective_to") @db.Date
+  status        RatePlanStatus  @default(ACTIVE)
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace     Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  building      Building        @relation(fields: [buildingId, workspaceId], references: [id, workspaceId], onDelete: Restrict)
+  invoiceItems  InvoiceItem[]
+
+  @@index([workspaceId, buildingId, code, effectiveFrom], map: "rate_plans_scope_code_effective_idx")
+  @@index([buildingId, status, effectiveFrom], map: "rate_plans_building_status_effective_idx")
+  @@map("rate_plans")
+}
+
+model Amenity {
+  id          String        @id @default(uuid()) @db.Uuid
+  workspaceId String        @map("workspace_id") @db.Uuid
+  name        String        @db.VarChar(100)
+  description String?       @db.Text
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  rooms       RoomAmenity[]
+
+  @@unique([id, workspaceId], map: "amenities_id_workspace_id_key")
+  @@unique([workspaceId, name], map: "amenities_workspace_id_name_key")
+  @@map("amenities")
+}
+
+model RoomAmenity {
+  roomId    String   @map("room_id") @db.Uuid
+  amenityId String   @map("amenity_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  amenity   Amenity  @relation(fields: [amenityId], references: [id], onDelete: Restrict)
+
+  @@id([roomId, amenityId])
+  @@index([amenityId], map: "room_amenities_amenity_id_idx")
+  @@map("room_amenities")
 }
 
 model AuthSession {
@@ -106,4 +585,412 @@ model AuthSession {
   @@index([familyId, revokedAt], map: "auth_sessions_family_id_revoked_at_idx")
   @@index([expiresAt], map: "auth_sessions_expires_at_idx")
   @@map("auth_sessions")
+}
+
+enum MeterType {
+  ELECTRICITY
+  WATER
+
+  @@map("meter_type")
+}
+
+model MeterReading {
+  id              String                   @id @default(uuid()) @db.Uuid
+  workspaceId     String                   @map("workspace_id") @db.Uuid
+  buildingId      String                   @map("building_id") @db.Uuid
+  roomId          String                   @map("room_id") @db.Uuid
+  meterType       MeterType                @map("meter_type")
+  period          DateTime                 @db.Date
+  previousReading Decimal                  @map("previous_reading") @db.Decimal(14, 3)
+  currentReading  Decimal                  @map("current_reading") @db.Decimal(14, 3)
+  revision        Int                      @default(1)
+  recordedBy      String                   @map("recorded_by") @db.Uuid
+  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace       Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  room            Room                     @relation(fields: [roomId, buildingId, workspaceId], references: [id, buildingId, workspaceId], onDelete: Restrict, map: "meter_readings_room_scope_fkey")
+  adjustments     MeterReadingAdjustment[]
+  invoiceItems    InvoiceItem[]
+
+  @@unique([id, workspaceId], map: "meter_readings_id_workspace_id_key")
+  @@unique([roomId, meterType, period], map: "meter_readings_room_type_period_key")
+  @@index([workspaceId, buildingId, period], map: "meter_readings_scope_period_idx")
+  @@map("meter_readings")
+}
+
+model MeterReadingAdjustment {
+  id                 String       @id @default(uuid()) @db.Uuid
+  workspaceId        String       @map("workspace_id") @db.Uuid
+  meterReadingId     String       @map("meter_reading_id") @db.Uuid
+  revision           Int
+  oldPreviousReading Decimal      @map("old_previous_reading") @db.Decimal(14, 3)
+  oldCurrentReading  Decimal      @map("old_current_reading") @db.Decimal(14, 3)
+  newPreviousReading Decimal      @map("new_previous_reading") @db.Decimal(14, 3)
+  newCurrentReading  Decimal      @map("new_current_reading") @db.Decimal(14, 3)
+  reason             String       @db.VarChar(500)
+  adjustedBy         String       @map("adjusted_by") @db.Uuid
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace          Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  meterReading       MeterReading @relation(fields: [meterReadingId, workspaceId], references: [id, workspaceId], onDelete: Restrict, map: "meter_reading_adjustments_reading_fkey")
+
+  @@unique([meterReadingId, revision], map: "meter_reading_adjustments_reading_revision_key")
+  @@index([workspaceId, meterReadingId], map: "meter_reading_adjustments_scope_idx")
+  @@map("meter_reading_adjustments")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+
+  @@map("invoice_status")
+}
+
+enum InvoiceItemType {
+  RENT
+  ELECTRICITY
+  WATER
+  SERVICE
+  VEHICLE
+
+  @@map("invoice_item_type")
+}
+
+model Invoice {
+  id                       String              @id @default(uuid()) @db.Uuid
+  workspaceId              String              @map("workspace_id") @db.Uuid
+  buildingId               String              @map("building_id") @db.Uuid
+  roomId                   String              @map("room_id") @db.Uuid
+  contractId               String              @map("contract_id") @db.Uuid
+  tenantId                 String              @map("tenant_id") @db.Uuid
+  period                   DateTime            @db.Date
+  status                   InvoiceStatus       @default(DRAFT)
+  occupantCount            Int?                @map("occupant_count")
+  occupantCountConfirmedBy String?             @map("occupant_count_confirmed_by") @db.Uuid
+  occupantCountConfirmedAt DateTime?           @map("occupant_count_confirmed_at") @db.Timestamptz(6)
+  billsVehicles            Boolean?            @map("bills_vehicles")
+  dueDate                  DateTime?           @map("due_date") @db.Date
+  notes                    String?             @db.Text
+  missingItems             Json                @default("[]") @map("missing_items")
+  totalAmount              Decimal?            @map("total_amount") @db.Decimal(14, 0)
+  roundingRule             String              @default("ROUND_HALF_UP_1_VND") @map("rounding_rule") @db.VarChar(40)
+  createdBy                String              @map("created_by") @db.Uuid
+  issuedBy                 String?             @map("issued_by") @db.Uuid
+  issuedAt                 DateTime?           @map("issued_at") @db.Timestamptz(6)
+  createdAt                DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace                Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  room                     Room                @relation(fields: [roomId, buildingId, workspaceId], references: [id, buildingId, workspaceId], onDelete: Restrict, map: "invoices_room_scope_fkey")
+  contract                 Contract            @relation(fields: [contractId, roomId, tenantId, workspaceId], references: [id, roomId, tenantId, workspaceId], onDelete: Restrict, map: "invoices_contract_scope_fkey")
+  items                    InvoiceItem[]
+  adjustments              InvoiceAdjustment[]
+  payments                 InvoicePayment[]
+
+  @@unique([id, workspaceId], map: "invoices_id_workspace_id_key")
+  @@unique([contractId, period], map: "invoices_contract_period_key")
+  @@index([workspaceId, buildingId, period, status], map: "invoices_scope_period_status_idx")
+  @@index([roomId, period], map: "invoices_room_period_idx")
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id                   String          @id @default(uuid()) @db.Uuid
+  workspaceId          String          @map("workspace_id") @db.Uuid
+  invoiceId            String          @map("invoice_id") @db.Uuid
+  sortOrder            Int             @map("sort_order")
+  itemType             InvoiceItemType @map("item_type")
+  code                 String          @db.VarChar(50)
+  description          String          @db.VarChar(200)
+  unit                 String          @db.VarChar(20)
+  quantity             Decimal         @db.Decimal(14, 3)
+  unitPrice            Decimal         @map("unit_price") @db.Decimal(14, 4)
+  prorationNumerator   Int?            @map("proration_numerator")
+  prorationDenominator Int?            @map("proration_denominator")
+  amount               Decimal         @db.Decimal(14, 0)
+  ratePlanId           String?         @map("rate_plan_id") @db.Uuid
+  meterReadingId       String?         @map("meter_reading_id") @db.Uuid
+  meterRevision        Int?            @map("meter_revision")
+  details              Json            @default("{}")
+  createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace            Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  invoice              Invoice         @relation(fields: [invoiceId, workspaceId], references: [id, workspaceId], onDelete: Restrict, map: "invoice_items_invoice_scope_fkey")
+  ratePlan             RatePlan?       @relation(fields: [ratePlanId], references: [id], onDelete: Restrict)
+  meterReading         MeterReading?   @relation(fields: [meterReadingId], references: [id], onDelete: Restrict)
+
+  @@unique([invoiceId, sortOrder], map: "invoice_items_invoice_sort_key")
+  @@index([workspaceId, invoiceId], map: "invoice_items_scope_idx")
+  @@map("invoice_items")
+}
+
+model RoomServiceAssignment {
+  id            String    @id @default(uuid()) @db.Uuid
+  workspaceId   String    @map("workspace_id") @db.Uuid
+  buildingId    String    @map("building_id") @db.Uuid
+  roomId        String    @map("room_id") @db.Uuid
+  rateCode      String    @map("rate_code") @db.VarChar(50)
+  effectiveFrom DateTime  @map("effective_from") @db.Date
+  effectiveTo   DateTime? @map("effective_to") @db.Date
+  createdBy     String    @map("created_by") @db.Uuid
+  endedBy       String?   @map("ended_by") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  room          Room      @relation(fields: [roomId, buildingId, workspaceId], references: [id, buildingId, workspaceId], onDelete: Restrict, map: "room_service_assignments_room_scope_fkey")
+
+  @@index([workspaceId, buildingId, roomId, rateCode, effectiveFrom], map: "room_service_assignments_scope_idx")
+  @@map("room_service_assignments")
+}
+
+model InvoiceAdjustment {
+  id                    String              @id @default(uuid()) @db.Uuid
+  workspaceId           String              @map("workspace_id") @db.Uuid
+  invoiceId             String              @map("invoice_id") @db.Uuid
+  amount                Decimal             @db.Decimal(14, 0)
+  requestedAmount       Decimal             @map("requested_amount") @db.Decimal(14, 4)
+  reason                String              @db.VarChar(500)
+  referenceAdjustmentId String?             @map("reference_adjustment_id") @db.Uuid
+  idempotencyKey        String              @map("idempotency_key") @db.VarChar(100)
+  createdBy             String              @map("created_by") @db.Uuid
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace             Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  invoice               Invoice             @relation(fields: [invoiceId, workspaceId], references: [id, workspaceId], onDelete: Restrict, map: "invoice_adjustments_invoice_scope_fkey")
+  reference             InvoiceAdjustment?  @relation("AdjustmentCorrection", fields: [referenceAdjustmentId, invoiceId], references: [id, invoiceId], onDelete: Restrict, map: "invoice_adjustments_reference_fkey")
+  corrections           InvoiceAdjustment[] @relation("AdjustmentCorrection")
+
+  @@unique([id, invoiceId], map: "invoice_adjustments_id_invoice_id_key")
+  @@unique([invoiceId, idempotencyKey], map: "invoice_adjustments_invoice_idempotency_key")
+  @@unique([referenceAdjustmentId], map: "invoice_adjustments_reference_key")
+  @@index([workspaceId, invoiceId, createdAt], map: "invoice_adjustments_scope_idx")
+  @@map("invoice_adjustments")
+}
+
+enum PaymentEntryKind {
+  PAYMENT
+  REVERSAL
+
+  @@map("payment_entry_kind")
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+
+  @@map("payment_method")
+}
+
+model InvoicePayment {
+  id                String           @id @default(uuid()) @db.Uuid
+  workspaceId       String           @map("workspace_id") @db.Uuid
+  invoiceId         String           @map("invoice_id") @db.Uuid
+  kind              PaymentEntryKind
+  amount            Decimal          @db.Decimal(14, 0)
+  method            PaymentMethod
+  receivedAt        DateTime         @map("received_at") @db.Timestamptz(6)
+  note              String?          @db.VarChar(500)
+  reversesPaymentId String?          @map("reverses_payment_id") @db.Uuid
+  idempotencyKey    String           @map("idempotency_key") @db.VarChar(100)
+  confirmedBy       String           @map("confirmed_by") @db.Uuid
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace         Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  invoice           Invoice          @relation(fields: [invoiceId, workspaceId], references: [id, workspaceId], onDelete: Restrict, map: "invoice_payments_invoice_scope_fkey")
+  reverses          InvoicePayment?  @relation("PaymentReversal", fields: [reversesPaymentId, invoiceId], references: [id, invoiceId], onDelete: Restrict, map: "invoice_payments_reverses_fkey")
+  reversal          InvoicePayment?  @relation("PaymentReversal")
+
+  @@unique([id, invoiceId], map: "invoice_payments_id_invoice_id_key")
+  @@unique([invoiceId, idempotencyKey], map: "invoice_payments_invoice_idempotency_key")
+  @@unique([reversesPaymentId, invoiceId], map: "invoice_payments_reverses_key")
+  @@index([workspaceId, invoiceId, receivedAt], map: "invoice_payments_scope_idx")
+  @@map("invoice_payments")
+}
+
+enum DepositEntryKind {
+  COLLECTION
+  DEDUCTION
+  REFUND
+  REVERSAL
+
+  @@map("deposit_entry_kind")
+}
+
+model ContractDepositEntry {
+  id              String                @id @default(uuid()) @db.Uuid
+  workspaceId     String                @map("workspace_id") @db.Uuid
+  contractId      String                @map("contract_id") @db.Uuid
+  kind            DepositEntryKind
+  amount          Decimal               @db.Decimal(14, 0)
+  method          PaymentMethod?
+  occurredAt      DateTime              @map("occurred_at") @db.Timestamptz(6)
+  reason          String?               @db.VarChar(500)
+  reference       String?               @db.VarChar(200)
+  note            String?               @db.VarChar(500)
+  reversesEntryId String?               @map("reverses_entry_id") @db.Uuid
+  idempotencyKey  String                @map("idempotency_key") @db.VarChar(100)
+  createdBy       String                @map("created_by") @db.Uuid
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace       Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  contract        Contract              @relation(fields: [contractId, workspaceId], references: [id, workspaceId], onDelete: Restrict, map: "contract_deposit_entries_contract_scope_fkey")
+  reverses        ContractDepositEntry? @relation("DepositReversal", fields: [reversesEntryId, contractId], references: [id, contractId], onDelete: Restrict, map: "contract_deposit_entries_reverses_fkey")
+  reversal        ContractDepositEntry? @relation("DepositReversal")
+
+  @@unique([id, contractId], map: "contract_deposit_entries_id_contract_id_key")
+  @@unique([contractId, idempotencyKey], map: "contract_deposit_entries_contract_idempotency_key")
+  @@unique([reversesEntryId, contractId], map: "contract_deposit_entries_reverses_key")
+  @@index([workspaceId, contractId, occurredAt], map: "contract_deposit_entries_scope_idx")
+  @@map("contract_deposit_entries")
+}
+
+enum MaintenanceStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  CANCELLED
+
+  @@map("maintenance_status")
+}
+
+enum MaintenancePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+
+  @@map("maintenance_priority")
+}
+
+model MaintenanceRequest {
+  id             String                     @id @default(uuid()) @db.Uuid
+  workspaceId    String                     @map("workspace_id") @db.Uuid
+  buildingId     String                     @map("building_id") @db.Uuid
+  roomId         String                     @map("room_id") @db.Uuid
+  contractId     String?                    @map("contract_id") @db.Uuid
+  tenantId       String?                    @map("tenant_id") @db.Uuid
+  requestedBy    String                     @map("requested_by") @db.Uuid
+  title          String                     @db.VarChar(150)
+  description    String                     @db.Text
+  priority       MaintenancePriority        @default(MEDIUM)
+  status         MaintenanceStatus          @default(OPEN)
+  assigneeUserId String?                    @map("assignee_user_id") @db.Uuid
+  resolutionNote String?                    @map("resolution_note") @db.Text
+  resolvedAt     DateTime?                  @map("resolved_at") @db.Timestamptz(6)
+  closedAt       DateTime?                  @map("closed_at") @db.Timestamptz(6)
+  createdAt      DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace      Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  room           Room                       @relation(fields: [roomId, buildingId, workspaceId], references: [id, buildingId, workspaceId], onDelete: Restrict, map: "maintenance_requests_room_scope_fkey")
+  contract       Contract?                  @relation(fields: [contractId, roomId, tenantId, workspaceId], references: [id, roomId, tenantId, workspaceId], onDelete: Restrict, map: "maintenance_requests_contract_scope_fkey")
+  history        MaintenanceStatusHistory[]
+
+  @@unique([id, workspaceId], map: "maintenance_requests_id_workspace_id_key")
+  @@index([workspaceId, buildingId, status, priority], map: "maintenance_requests_scope_status_idx")
+  @@index([roomId, status], map: "maintenance_requests_room_status_idx")
+  @@index([tenantId, createdAt], map: "maintenance_requests_tenant_idx")
+  @@index([assigneeUserId, status], map: "maintenance_requests_assignee_idx")
+  @@map("maintenance_requests")
+}
+
+model MaintenanceStatusHistory {
+  id             String              @id @default(uuid()) @db.Uuid
+  workspaceId    String              @map("workspace_id") @db.Uuid
+  requestId      String              @map("request_id") @db.Uuid
+  fromStatus     MaintenanceStatus?  @map("from_status")
+  toStatus       MaintenanceStatus   @map("to_status")
+  priority       MaintenancePriority
+  assigneeUserId String?             @map("assignee_user_id") @db.Uuid
+  note           String?             @db.VarChar(1000)
+  changedBy      String              @map("changed_by") @db.Uuid
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace      Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  request        MaintenanceRequest  @relation(fields: [requestId, workspaceId], references: [id, workspaceId], onDelete: Restrict, map: "maintenance_status_history_request_scope_fkey")
+
+  @@index([workspaceId, requestId, createdAt], map: "maintenance_status_history_scope_idx")
+  @@map("maintenance_status_history")
+}
+
+enum NotificationType {
+  VIEWING_REQUESTED
+  VIEWING_CONFIRMED
+  VIEWING_REJECTED
+  VIEWING_CANCELLED
+  MAINTENANCE_CREATED
+  MAINTENANCE_STATUS_CHANGED
+  INVOICE_ISSUED
+
+  @@map("notification_type")
+}
+
+model Notification {
+  id          String           @id @default(uuid()) @db.Uuid
+  userId      String           @map("user_id") @db.Uuid
+  workspaceId String           @map("workspace_id") @db.Uuid
+  type        NotificationType
+  entityType  String           @map("entity_type") @db.VarChar(40)
+  entityId    String           @map("entity_id") @db.Uuid
+  title       String           @db.VarChar(200)
+  body        String?          @db.VarChar(500)
+  dedupeKey   String           @map("dedupe_key") @db.VarChar(120)
+  readAt      DateTime?        @map("read_at") @db.Timestamptz(6)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, dedupeKey], map: "notifications_user_dedupe_key")
+  @@index([userId, createdAt(sort: Desc), id], map: "notifications_user_created_idx")
+  @@map("notifications")
+}
+
+/// Platform-level role, independent of workspace roles. Rows are granted by an operator in the
+/// database only; no public or admin API can create one.
+model PlatformAdmin {
+  userId      String   @id @map("user_id") @db.Uuid
+  grantedAt   DateTime @default(now()) @map("granted_at") @db.Timestamptz(6)
+  grantedNote String?  @map("granted_note") @db.VarChar(200)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@map("platform_admins")
+}
+
+/// Current moderation state of a listing; the owner's own publish state is never touched.
+model ListingModeration {
+  listingId   String   @id @map("listing_id") @db.Uuid
+  isHidden    Boolean  @map("is_hidden")
+  reason      String   @db.VarChar(500)
+  updatedBy   String   @map("updated_by") @db.Uuid
+  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  listing     Listing  @relation(fields: [listingId], references: [id], onDelete: Restrict)
+  updatedUser User     @relation(fields: [updatedBy], references: [id], onDelete: Restrict)
+
+  @@index([isHidden, updatedAt], map: "listing_moderations_hidden_idx")
+  @@map("listing_moderations")
+}
+
+/// Append-only record of platform admin actions.
+model AdminAuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorUserId String   @map("actor_user_id") @db.Uuid
+  action      String   @db.VarChar(50)
+  targetType  String   @map("target_type") @db.VarChar(30)
+  targetId    String   @map("target_id") @db.Uuid
+  reason      String   @db.VarChar(500)
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  actor       User     @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt(sort: Desc), id], map: "admin_audit_logs_created_idx")
+  @@index([actorUserId, createdAt], map: "admin_audit_logs_actor_idx")
+  @@index([targetType, targetId, createdAt], map: "admin_audit_logs_target_idx")
+  @@map("admin_audit_logs")
+}
+
+/// Single-use password reset tokens; only the SHA-256 digest of the token is stored.
+model PasswordResetToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  Bytes     @unique(map: "password_reset_tokens_token_hash_key") @map("token_hash") @db.ByteA
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt(sort: Desc)], map: "password_reset_tokens_user_created_idx")
+  @@map("password_reset_tokens")
 }

@@ -9,6 +9,7 @@ import { validateEnvironment } from '../src/config/environment';
 import { AuthModule } from '../src/modules/auth/auth.module';
 import { AuthRepository } from '../src/modules/auth/repositories/auth.repository';
 import { AuthSecurityModule } from '../src/modules/auth/security/auth-security.module';
+import { PasswordResetRepository } from '../src/modules/auth/password-reset/password-reset.repository';
 import { AUTH_SERVICE } from '../src/modules/auth/services/auth-service.contract';
 import { DUMMY_PASSWORD_HASH } from '../src/modules/auth/services/auth.service';
 
@@ -67,6 +68,8 @@ describe('Auth rate limits through HTTP, Express proxy resolution and error filt
     })
       .overrideProvider(AuthRepository)
       .useValue({ findSessionFamilyByTokenHash: familyLookup })
+      .overrideProvider(PasswordResetRepository)
+      .useValue({})
       .overrideProvider(DUMMY_PASSWORD_HASH)
       .useValue('unused-test-hash')
       .overrideProvider(AUTH_SERVICE)

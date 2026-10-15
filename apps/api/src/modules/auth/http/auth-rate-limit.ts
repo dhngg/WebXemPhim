@@ -18,7 +18,7 @@ import { RefreshCookieService } from './auth-http-security';
 
 export const AUTH_RATE_LIMIT_CONFIG = Symbol('AUTH_RATE_LIMIT_CONFIG');
 const RATE_LIMIT_ACTION = Symbol('RATE_LIMIT_ACTION');
-type AuthAction = 'register' | 'login' | 'refresh';
+type AuthAction = 'register' | 'login' | 'refresh' | 'forgot' | 'reset';
 export const AuthRateLimit = (action: AuthAction) => SetMetadata(RATE_LIMIT_ACTION, action);
 
 // Process-local only: counters disappear on restart and are not shared across replicas.
@@ -102,7 +102,7 @@ export class AuthRateLimitGuard implements CanActivate {
     if (!action) return true;
     const request = context.switchToHttp().getRequest<Request>();
     const response = context.switchToHttp().getResponse<Response>();
-    const prefix = action.toUpperCase() as 'REGISTER' | 'LOGIN' | 'REFRESH';
+    const prefix = action.toUpperCase() as 'REGISTER' | 'LOGIN' | 'REFRESH' | 'FORGOT' | 'RESET';
     const window = this.config[`AUTH_RATE_LIMIT_${prefix}_WINDOW_SECONDS`];
     this.check(
       response,
@@ -121,6 +121,31 @@ export class AuthRateLimitGuard implements CanActivate {
           'login:email',
           normalized,
           this.config.AUTH_RATE_LIMIT_LOGIN_EMAIL_MAX,
+          window,
+        );
+      }
+    }
+    if (action === 'forgot' && typeof email === 'string') {
+      const normalized = email.trim().toLowerCase();
+      if (normalized.length > 0 && normalized.length <= 254) {
+        this.check(
+          response,
+          'forgot:email',
+          normalized,
+          this.config.AUTH_RATE_LIMIT_FORGOT_EMAIL_MAX,
+          window,
+        );
+      }
+    }
+    if (action === 'reset') {
+      // Per-token bucket: a guessed/leaked token cannot be hammered from many addresses.
+      const token: unknown = (request.body as { token?: unknown } | undefined)?.token;
+      if (typeof token === 'string' && token.length > 0 && token.length <= 128) {
+        this.check(
+          response,
+          'reset:token',
+          token,
+          this.config.AUTH_RATE_LIMIT_RESET_TOKEN_MAX,
           window,
         );
       }

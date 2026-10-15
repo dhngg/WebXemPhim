@@ -16,7 +16,12 @@ export default tseslint.config(
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
-  { languageOptions: { globals: { ...globals.node } } },
+  {
+    languageOptions: {
+      globals: { ...globals.node },
+      parserOptions: { tsconfigRootDir: import.meta.dirname },
+    },
+  },
   { files: ['apps/web/src/**/*.{ts,tsx}'], languageOptions: { globals: globals.browser } },
   { files: ['**/*.cjs'], rules: { '@typescript-eslint/no-require-imports': 'off' } },
   prettier,

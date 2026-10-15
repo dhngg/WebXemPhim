@@ -1,9 +1,8 @@
 import { Prisma } from '../../../generated/prisma/client';
 import {
-  WorkspaceArchivedRepositoryError,
-  WorkspaceMemberNotFoundRepositoryError,
+  WorkspaceApplicationRequiredRepositoryError,
+  WorkspaceActiveOwnershipLimitRepositoryError,
   WorkspaceNotFoundRepositoryError,
-  WorkspaceOwnerConflictRepositoryError,
   WorkspaceRepository,
 } from './workspace.repository';
 
@@ -19,9 +18,17 @@ describe('WorkspaceRepository', () => {
 
   it('creates the workspace and its OWNER in one serializable transaction', async () => {
     const transaction = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       user: { findUnique: jest.fn().mockResolvedValue({ status: 'ACTIVE' }) },
-      workspace: { create: jest.fn().mockResolvedValue(workspace) },
-      workspaceMembership: { create: jest.fn().mockResolvedValue({}) },
+      workspace: {
+        create: jest.fn().mockResolvedValue(workspace),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      workspaceMembership: {
+        create: jest.fn().mockResolvedValue({}),
+        findFirst: jest.fn().mockResolvedValue({ id: 'legacy-owner' }),
+      },
+      landlordApplication: { findFirst: jest.fn(), update: jest.fn() },
     };
     const prisma = {
       $transaction: jest.fn(async (operation) => operation(transaction)),
@@ -40,166 +47,128 @@ describe('WorkspaceRepository', () => {
     });
   });
 
-  it('locks the workspace and atomically demotes then promotes during ownership transfer', async () => {
-    const demote = jest
-      .fn()
-      .mockResolvedValueOnce({ count: 1 })
-      .mockResolvedValueOnce({ count: 1 });
+  it('blocks first workspace creation without an approved application', async () => {
     const transaction = {
-      $queryRaw: jest.fn().mockResolvedValue([{ id: workspace.id, status: 'ACTIVE' }]),
-      workspaceMembership: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'membership-owner', role: 'OWNER' }),
-        findFirst: jest.fn().mockResolvedValue({
-          id: 'membership-2',
-          userId: 'owner-2',
-          role: 'MANAGER',
-          user: { status: 'ACTIVE' },
-        }),
-        updateMany: demote,
-      },
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      user: { findUnique: jest.fn().mockResolvedValue({ status: 'ACTIVE' }) },
+      workspace: { create: jest.fn(), count: jest.fn() },
+      workspaceMembership: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn() },
+      landlordApplication: { findFirst: jest.fn().mockResolvedValue(null), update: jest.fn() },
     };
-    const prisma = { $transaction: jest.fn(async (operation) => operation(transaction)) };
-    const repository = new WorkspaceRepository(prisma as never);
+    const repository = new WorkspaceRepository({
+      $transaction: jest.fn(async (operation) => operation(transaction)),
+    } as never);
 
-    await repository.transferOwnership(workspace.id, 'owner-1', 'membership-2');
-
-    expect(transaction.$queryRaw).toHaveBeenCalledTimes(1);
-    expect(demote).toHaveBeenNthCalledWith(1, {
-      where: {
-        id: 'membership-owner',
-        workspaceId: workspace.id,
-        userId: 'owner-1',
-        role: 'OWNER',
-      },
-      data: { role: 'MANAGER' },
-    });
-    expect(demote).toHaveBeenNthCalledWith(2, {
-      where: {
-        id: 'membership-2',
-        workspaceId: workspace.id,
-        userId: 'owner-2',
-        role: { in: ['MANAGER', 'STAFF'] },
-        user: { status: 'ACTIVE' },
-      },
-      data: { role: 'OWNER' },
-    });
-    expect(demote.mock.invocationCallOrder[0]).toBeLessThan(demote.mock.invocationCallOrder[1]!);
-    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-    });
+    await expect(repository.createWithOwner('new-user', 'Workspace A')).rejects.toBeInstanceOf(
+      WorkspaceApplicationRequiredRepositoryError,
+    );
+    expect(transaction.workspace.create).not.toHaveBeenCalled();
+    expect(transaction.workspaceMembership.create).not.toHaveBeenCalled();
   });
 
-  it('aborts transfer when the current OWNER cannot be claimed', async () => {
+  it('blocks creating another ACTIVE workspace while preserving the existing OWNER membership', async () => {
     const transaction = {
-      $queryRaw: jest.fn().mockResolvedValue([{ id: workspace.id, status: 'ACTIVE' }]),
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      user: { findUnique: jest.fn().mockResolvedValue({ status: 'ACTIVE' }) },
+      workspace: { create: jest.fn(), count: jest.fn().mockResolvedValue(1) },
       workspaceMembership: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'membership-owner', role: 'MANAGER' }),
-        findFirst: jest.fn(),
-        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findFirst: jest.fn().mockResolvedValue({ id: 'legacy-owner' }),
+        create: jest.fn(),
       },
+      landlordApplication: { findFirst: jest.fn(), update: jest.fn() },
     };
-    const prisma = { $transaction: jest.fn(async (operation) => operation(transaction)) };
-    const repository = new WorkspaceRepository(prisma as never);
+    const repository = new WorkspaceRepository({
+      $transaction: jest.fn(async (operation) => operation(transaction)),
+    } as never);
 
     await expect(
-      repository.transferOwnership(workspace.id, 'stale-owner', 'membership-2'),
-    ).rejects.toBeInstanceOf(WorkspaceOwnerConflictRepositoryError);
-    expect(transaction.workspaceMembership.updateMany).not.toHaveBeenCalled();
+      repository.createWithOwner('legacy-owner-user', 'Workspace B'),
+    ).rejects.toBeInstanceOf(WorkspaceActiveOwnershipLimitRepositoryError);
+    expect(transaction.workspace.count).toHaveBeenCalledWith({
+      where: {
+        status: 'ACTIVE',
+        memberships: { some: { userId: 'legacy-owner-user', role: 'OWNER' } },
+      },
+    });
+    expect(transaction.workspace.create).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ['missing', null],
-    [
-      'disabled',
-      {
-        id: 'membership-2',
-        userId: 'owner-2',
-        role: 'MANAGER',
-        user: { status: 'DISABLED' },
-      },
-    ],
-  ] as const)('rejects a %s target membership', async (_case, target) => {
+  it('does not create an additional workspace for a legacy OWNER with multiple workspaces', async () => {
     const transaction = {
-      $queryRaw: jest.fn().mockResolvedValue([{ id: workspace.id, status: 'ACTIVE' }]),
-      workspaceMembership: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'membership-owner', role: 'OWNER' }),
-        findFirst: jest.fn().mockResolvedValue(target),
-        updateMany: jest.fn(),
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      user: { findUnique: jest.fn().mockResolvedValue({ status: 'ACTIVE' }) },
+      workspace: {
+        create: jest.fn(),
+        count: jest.fn().mockResolvedValueOnce(0).mockResolvedValueOnce(2),
       },
+      workspaceMembership: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'legacy-owner' }),
+        create: jest.fn(),
+      },
+      landlordApplication: { findFirst: jest.fn(), update: jest.fn() },
     };
-    const prisma = { $transaction: jest.fn(async (operation) => operation(transaction)) };
-    const repository = new WorkspaceRepository(prisma as never);
+    const repository = new WorkspaceRepository({
+      $transaction: jest.fn(async (operation) => operation(transaction)),
+    } as never);
 
     await expect(
-      repository.transferOwnership(workspace.id, 'owner-1', 'membership-2'),
-    ).rejects.toBeInstanceOf(WorkspaceMemberNotFoundRepositoryError);
-    expect(transaction.workspaceMembership.updateMany).not.toHaveBeenCalled();
+      repository.createWithOwner('legacy-owner-user', 'Workspace C'),
+    ).rejects.toBeInstanceOf(WorkspaceActiveOwnershipLimitRepositoryError);
+    expect(transaction.workspace.create).not.toHaveBeenCalled();
   });
 
-  it('serializes concurrent transfer requests so only one current-OWNER claim succeeds', async () => {
-    const targets = new Map([
-      [
-        'membership-2',
-        {
-          id: 'membership-2',
-          userId: 'owner-2',
-          role: 'MANAGER',
-          user: { status: 'ACTIVE' },
-        },
-      ],
-      [
-        'membership-3',
-        {
-          id: 'membership-3',
-          userId: 'owner-3',
-          role: 'STAFF',
-          user: { status: 'ACTIVE' },
-        },
-      ],
-    ]);
-    let currentOwner = 'owner-1';
-    let serialized = Promise.resolve<unknown>(undefined);
+  it('lists only OWNER memberships for the V1 landlord workspace surface', async () => {
     const prisma = {
-      $transaction: jest.fn((operation) => {
-        const run = serialized.then(async () => {
-          const transaction = {
-            $queryRaw: jest.fn().mockResolvedValue([{ id: workspace.id, status: 'ACTIVE' }]),
-            workspaceMembership: {
-              findUnique: jest.fn(({ where }) =>
-                Promise.resolve({
-                  id: `membership-${where.workspaceId_userId.userId}`,
-                  role: where.workspaceId_userId.userId === currentOwner ? 'OWNER' : 'MANAGER',
-                }),
-              ),
-              findFirst: jest.fn(({ where }) => Promise.resolve(targets.get(where.id) ?? null)),
-              updateMany: jest.fn(({ where, data }) => {
-                if (data.role === 'MANAGER') {
-                  if (where.userId !== currentOwner) return Promise.resolve({ count: 0 });
-                  currentOwner = '';
-                  return Promise.resolve({ count: 1 });
-                }
-                currentOwner = where.userId;
-                return Promise.resolve({ count: 1 });
-              }),
-            },
-          };
-          return operation(transaction);
-        });
-        serialized = run.catch(() => undefined);
-        return run;
-      }),
+      workspaceMembership: {
+        findMany: jest.fn().mockResolvedValue([{ workspace, role: 'OWNER' }]),
+      },
     };
     const repository = new WorkspaceRepository(prisma as never);
 
-    const results = await Promise.allSettled([
-      repository.transferOwnership(workspace.id, 'owner-1', 'membership-2'),
-      repository.transferOwnership(workspace.id, 'owner-1', 'membership-3'),
+    await expect(repository.findForUser('user-1')).resolves.toEqual([
+      { ...workspace, role: 'OWNER' },
     ]);
+    expect(prisma.workspaceMembership.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: 'user-1', role: 'OWNER' } }),
+    );
+  });
 
-    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
-    const rejected = results.find((result) => result.status === 'rejected');
-    expect(rejected).toMatchObject({ reason: expect.any(WorkspaceOwnerConflictRepositoryError) });
-    expect(['owner-2', 'owner-3']).toContain(currentOwner);
+  it.each(['MANAGER', 'STAFF'] as const)(
+    'does not expose an accessible workspace for a historical %s membership',
+    async (role) => {
+      const prisma = {
+        workspaceMembership: {
+          findUnique: jest.fn().mockResolvedValue({ workspace, role }),
+        },
+      };
+      const repository = new WorkspaceRepository(prisma as never);
+
+      await expect(
+        repository.findAccessibleWorkspace('legacy-user', workspace.id),
+      ).resolves.toBeNull();
+    },
+  );
+
+  it('blocks every retired member-management and ownership-transfer repository path without touching Prisma', async () => {
+    const prisma = { $transaction: jest.fn() };
+    const repository = new WorkspaceRepository(prisma as never);
+
+    await expect(repository.listMembers(workspace.id, 'owner-1')).rejects.toBeInstanceOf(
+      WorkspaceNotFoundRepositoryError,
+    );
+    await expect(
+      repository.addMember(workspace.id, 'owner-1', 'manager@example.com', 'MANAGER'),
+    ).rejects.toBeInstanceOf(WorkspaceNotFoundRepositoryError);
+    await expect(
+      repository.updateMemberRole(workspace.id, 'owner-1', 'membership-2', 'STAFF'),
+    ).rejects.toBeInstanceOf(WorkspaceNotFoundRepositoryError);
+    await expect(
+      repository.removeMember(workspace.id, 'owner-1', 'membership-2'),
+    ).rejects.toBeInstanceOf(WorkspaceNotFoundRepositoryError);
+    await expect(
+      repository.transferOwnership(workspace.id, 'owner-1', 'membership-2'),
+    ).rejects.toBeInstanceOf(WorkspaceNotFoundRepositoryError);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('archives an ACTIVE workspace under a row lock without changing memberships', async () => {
@@ -270,6 +239,7 @@ describe('WorkspaceRepository', () => {
       },
       workspace: {
         findUnique: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
         update: jest.fn().mockResolvedValue(restored),
       },
     };
@@ -286,6 +256,26 @@ describe('WorkspaceRepository', () => {
     });
   });
 
+  it('blocks restoring when another ACTIVE workspace is already owned', async () => {
+    const transaction = {
+      $queryRaw: jest.fn().mockResolvedValue([{ id: workspace.id, status: 'ARCHIVED' }]),
+      workspaceMembership: { findUnique: jest.fn().mockResolvedValue({ role: 'OWNER' }) },
+      workspace: {
+        findUnique: jest.fn(),
+        count: jest.fn().mockResolvedValue(1),
+        update: jest.fn(),
+      },
+    };
+    const repository = new WorkspaceRepository({
+      $transaction: jest.fn(async (operation) => operation(transaction)),
+    } as never);
+
+    await expect(repository.restore(workspace.id, 'owner-1')).rejects.toBeInstanceOf(
+      WorkspaceActiveOwnershipLimitRepositoryError,
+    );
+    expect(transaction.workspace.update).not.toHaveBeenCalled();
+  });
+
   it('does not update an ACTIVE workspace when restore is retried', async () => {
     const transaction = {
       $queryRaw: jest.fn().mockResolvedValue([{ id: workspace.id, status: 'ACTIVE' }]),
@@ -294,6 +284,7 @@ describe('WorkspaceRepository', () => {
       },
       workspace: {
         findUnique: jest.fn().mockResolvedValue(workspace),
+        count: jest.fn(),
         update: jest.fn(),
       },
     };
@@ -313,7 +304,7 @@ describe('WorkspaceRepository', () => {
       workspaceMembership: {
         findUnique: jest.fn().mockResolvedValue({ role: 'MANAGER' }),
       },
-      workspace: { findUnique: jest.fn(), update: jest.fn() },
+      workspace: { findUnique: jest.fn(), count: jest.fn(), update: jest.fn() },
     };
     const prisma = { $transaction: jest.fn(async (operation) => operation(transaction)) };
     const repository = new WorkspaceRepository(prisma as never);
@@ -322,19 +313,5 @@ describe('WorkspaceRepository', () => {
       WorkspaceNotFoundRepositoryError,
     );
     expect(transaction.workspace.update).not.toHaveBeenCalled();
-  });
-
-  it('reports an archived workspace when a business ownership write is attempted', async () => {
-    const transaction = {
-      $queryRaw: jest.fn().mockResolvedValue([{ id: workspace.id, status: 'ARCHIVED' }]),
-      workspaceMembership: { findUnique: jest.fn(), updateMany: jest.fn() },
-    };
-    const prisma = { $transaction: jest.fn(async (operation) => operation(transaction)) };
-    const repository = new WorkspaceRepository(prisma as never);
-
-    await expect(
-      repository.transferOwnership(workspace.id, 'owner-1', 'membership-2'),
-    ).rejects.toBeInstanceOf(WorkspaceArchivedRepositoryError);
-    expect(transaction.workspaceMembership.updateMany).not.toHaveBeenCalled();
   });
 });

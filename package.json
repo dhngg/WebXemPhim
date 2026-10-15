@@ -45,6 +45,10 @@
     "*.{json,md,yml,yaml,css,html}": "prettier --write"
   },
   "overrides": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "@types/react": "18.3.31",
+    "vite": "6.4.4",
     "deepmerge-ts": "8.0.2",
     "mysql2": "3.24.6",
     "@nestjs/swagger": {
@@ -62,6 +66,7 @@
     "eslint-config-prettier": "10.1.8",
     "globals": "16.5.0",
     "husky": "9.1.7",
+    "jsdom": "25.0.1",
     "lint-staged": "16.4.0",
     "prettier": "3.9.10",
     "typescript": "5.9.3",

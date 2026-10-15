@@ -69,7 +69,24 @@ const environmentSchema = z.object({
   AUTH_RATE_LIMIT_REFRESH_WINDOW_SECONDS: z.coerce.number().int().min(1).max(86400).default(60),
   AUTH_RATE_LIMIT_REFRESH_IP_MAX: z.coerce.number().int().min(1).max(100000).default(60),
   AUTH_RATE_LIMIT_REFRESH_FAMILY_MAX: z.coerce.number().int().min(1).max(100000).default(30),
+  AUTH_RATE_LIMIT_FORGOT_WINDOW_SECONDS: z.coerce.number().int().min(1).max(86400).default(900),
+  AUTH_RATE_LIMIT_FORGOT_IP_MAX: z.coerce.number().int().min(1).max(100000).default(5),
+  AUTH_RATE_LIMIT_FORGOT_EMAIL_MAX: z.coerce.number().int().min(1).max(100000).default(3),
+  AUTH_RATE_LIMIT_RESET_WINDOW_SECONDS: z.coerce.number().int().min(1).max(86400).default(900),
+  AUTH_RATE_LIMIT_RESET_IP_MAX: z.coerce.number().int().min(1).max(100000).default(10),
+  AUTH_RATE_LIMIT_RESET_TOKEN_MAX: z.coerce.number().int().min(1).max(100000).default(5),
   AUTH_RATE_LIMIT_MAX_KEYS: z.coerce.number().int().min(1).max(1000000).default(20000),
+  EMAIL_PROVIDER: z.enum(['disabled', 'smtp']).default('disabled'),
+  EMAIL_FROM: optionalString,
+  SMTP_HOST: optionalString,
+  SMTP_PORT: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.coerce.number().int().min(1).max(65535).optional(),
+  ),
+  SMTP_SECURE: booleanSetting('false'),
+  SMTP_USER: optionalString,
+  SMTP_PASSWORD: optionalString,
+  PASSWORD_RESET_URL_BASE: optionalString,
   AUTH_JWT_ISSUER: optionalString,
   AUTH_JWT_AUDIENCE: optionalString,
   AUTH_JWT_ACTIVE_KID: optionalString,
@@ -153,6 +170,45 @@ export function validateEnvironment(input: Record<string, unknown>): Environment
     origins.some((origin) => !origin.startsWith('https://'))
   ) {
     throw new Error('CORS_ORIGINS must use HTTPS when Auth is enabled in production');
+  }
+  if (values.EMAIL_PROVIDER === 'smtp') {
+    if (!values.AUTH_ENABLED) throw new Error('AUTH_ENABLED must be true when EMAIL_PROVIDER=smtp');
+    if (
+      !values.SMTP_HOST ||
+      !values.SMTP_PORT ||
+      !values.EMAIL_FROM ||
+      !values.PASSWORD_RESET_URL_BASE
+    ) {
+      throw new Error(
+        'EMAIL_PROVIDER=smtp requires SMTP_HOST, SMTP_PORT, EMAIL_FROM and PASSWORD_RESET_URL_BASE',
+      );
+    }
+    if (Boolean(values.SMTP_USER) !== Boolean(values.SMTP_PASSWORD)) {
+      throw new Error('SMTP_USER and SMTP_PASSWORD must be set together');
+    }
+    let resetUrl: URL;
+    try {
+      resetUrl = new URL(values.PASSWORD_RESET_URL_BASE);
+    } catch {
+      throw new Error('PASSWORD_RESET_URL_BASE must be a valid URL');
+    }
+    if (
+      !['http:', 'https:'].includes(resetUrl.protocol) ||
+      resetUrl.search ||
+      resetUrl.hash ||
+      resetUrl.username ||
+      resetUrl.password
+    ) {
+      throw new Error(
+        'PASSWORD_RESET_URL_BASE must be an http(s) URL without query, fragment or credentials',
+      );
+    }
+    if (!origins.includes(resetUrl.origin)) {
+      throw new Error('PASSWORD_RESET_URL_BASE origin must be listed in CORS_ORIGINS');
+    }
+    if (values.NODE_ENV === 'production' && resetUrl.protocol !== 'https:') {
+      throw new Error('PASSWORD_RESET_URL_BASE must use HTTPS in production');
+    }
   }
   if (values.AUTH_ENABLED) {
     const cookieName = values.AUTH_REFRESH_COOKIE_NAME?.trim();
